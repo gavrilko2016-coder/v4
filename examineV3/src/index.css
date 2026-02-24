@@ -1,0 +1,238 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════
+   PREMIUM CASINO — Luxury Dark Theme
+   Fonts: Inter (body) + Barlow Condensed (headings)
+   Palette: #0D0D0D bg, gold/emerald/ruby accents
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── Typography ───────────────────────────────────────────── */
+.font-heading { font-family: var(--font-heading); letter-spacing: 0.02em; }
+.font-body { font-family: var(--font-body); }
+
+/* ─── Glow text utilities ──────────────────────────────────── */
+.glow-gold { text-shadow: 0 0 12px rgba(255,215,0,0.4), 0 0 30px rgba(255,215,0,0.15); }
+.glow-emerald { text-shadow: 0 0 12px rgba(0,255,170,0.4), 0 0 30px rgba(0,255,170,0.15); }
+.glow-ruby { text-shadow: 0 0 12px rgba(255,0,85,0.4), 0 0 30px rgba(255,0,85,0.15); }
+.glow-purple { text-shadow: 0 0 12px rgba(168,85,247,0.4), 0 0 30px rgba(168,85,247,0.15); }
+.glow-cyan { text-shadow: 0 0 12px rgba(6,182,212,0.4), 0 0 30px rgba(6,182,212,0.15); }
+
+/* Legacy aliases for existing code */
+.cyber-glow-cyan { text-shadow: 0 0 10px rgba(6,182,212,0.5), 0 0 24px rgba(6,182,212,0.2); }
+.cyber-glow-purple { text-shadow: 0 0 10px rgba(168,85,247,0.5), 0 0 24px rgba(168,85,247,0.2); }
+.cyber-glow-pink { text-shadow: 0 0 10px rgba(255,0,85,0.5), 0 0 24px rgba(255,0,85,0.2); }
+.cyber-glow-yellow { text-shadow: 0 0 10px rgba(255,215,0,0.5), 0 0 24px rgba(255,215,0,0.2); }
+.cyber-glow-green { text-shadow: 0 0 10px rgba(0,255,170,0.5), 0 0 24px rgba(0,255,170,0.2); }
+
+/* ─── Glow box utilities ───────────────────────────────────── */
+.neon-box-cyan { box-shadow: 0 0 12px rgba(6,182,212,0.2), 0 0 30px rgba(6,182,212,0.08); }
+.neon-box-purple { box-shadow: 0 0 12px rgba(168,85,247,0.2), 0 0 30px rgba(168,85,247,0.08); }
+.neon-box-pink { box-shadow: 0 0 12px rgba(255,0,85,0.2), 0 0 30px rgba(255,0,85,0.08); }
+.neon-box-yellow { box-shadow: 0 0 12px rgba(255,215,0,0.2), 0 0 30px rgba(255,215,0,0.08); }
+.neon-box-green { box-shadow: 0 0 12px rgba(0,255,170,0.2), 0 0 30px rgba(0,255,170,0.08); }
+
+.cyber-border-cyan { border-color: rgba(6,182,212,0.25); }
+.cyber-border-purple { border-color: rgba(168,85,247,0.25); }
+
+/* ─── Animations ───────────────────────────────────────────── */
+.animate-neon-pulse { animation: neon-pulse 2s ease-in-out infinite; }
+.animate-float { animation: float 3s ease-in-out infinite; }
+.animate-glitch { animation: glitch 0.3s ease-in-out; }
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,215,0,0.06) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+.animate-glow-pulse { animation: glow-pulse 3s ease-in-out infinite; }
+.animate-slide-up { animation: slide-up 0.4s ease-out; }
+.animate-fade-in { animation: fade-in 0.3s ease-out; }
+
+/* ─── Glassmorphism Card (premium) ─────────────────────────── */
+.cyber-card {
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.4),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+}
+.cyber-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,215,0,0.2), rgba(0,255,170,0.15), transparent);
+  opacity: 0.8;
+}
+.cyber-card::after {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255,215,0,0.04), transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(0,255,170,0.03), transparent 50%);
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0.6;
+}
+.cyber-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255,255,255,0.12);
+  box-shadow:
+    0 16px 48px rgba(0,0,0,0.5),
+    0 0 30px rgba(255,215,0,0.06),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+/* ─── Glass panel (lighter) ────────────────────────────────── */
+.glass-panel {
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+}
+
+/* ─── Premium Buttons ──────────────────────────────────────── */
+.btn-premium-gold {
+  background: linear-gradient(135deg, #FFD700, #F0C000);
+  color: #0D0D0D;
+  font-weight: 700;
+  border: none;
+  border-radius: 12px;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 20px rgba(255,215,0,0.25);
+  position: relative;
+  overflow: hidden;
+}
+.btn-premium-gold::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.3) 50%, transparent 60%);
+  background-size: 200% 200%;
+  animation: shimmer 3s ease infinite;
+}
+.btn-premium-gold:hover {
+  box-shadow: 0 8px 32px rgba(255,215,0,0.4);
+  transform: translateY(-1px);
+}
+.btn-premium-gold:active { transform: scale(0.97); }
+
+.btn-glass {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.9);
+  border-radius: 12px;
+  transition: all 0.25s ease;
+  backdrop-filter: blur(10px);
+}
+.btn-glass:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.15);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+/* Legacy cyber buttons */
+.btn-cyber-cyan {
+  background: rgba(6,182,212,0.08);
+  border: 1px solid rgba(6,182,212,0.25);
+  color: #06B6D4;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 16px rgba(6,182,212,0.1);
+}
+.btn-cyber-cyan:hover {
+  background: rgba(6,182,212,0.12);
+  box-shadow: 0 8px 24px rgba(6,182,212,0.2);
+  transform: translateY(-1px);
+}
+.btn-cyber-purple {
+  background: rgba(168,85,247,0.08);
+  border: 1px solid rgba(168,85,247,0.25);
+  color: #A855F7;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 16px rgba(168,85,247,0.1);
+}
+.btn-cyber-purple:hover {
+  background: rgba(168,85,247,0.12);
+  box-shadow: 0 8px 24px rgba(168,85,247,0.2);
+  transform: translateY(-1px);
+}
+.btn-cyber-green {
+  background: rgba(0,255,170,0.06);
+  border: 1px solid rgba(0,255,170,0.2);
+  color: #00FFAA;
+}
+
+/* ─── Premium Game Card ────────────────────────────────────── */
+.game-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.game-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.7) 100%);
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+.game-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow:
+    0 20px 50px rgba(0,0,0,0.6),
+    0 0 40px rgba(255,215,0,0.08);
+}
+.game-card:active { transform: scale(0.97); }
+
+/* ─── Input styles ─────────────────────────────────────────── */
+input[type=range] {
+  -webkit-appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.1);
+  outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #FFD700, #F0C000);
+  box-shadow: 0 0 12px rgba(255,215,0,0.4);
+  cursor: pointer;
+  border: 2px solid rgba(255,255,255,0.2);
+}
+input[type=number]::-webkit-inner-spin-button { display: none; }
+
+/* ─── Utility: subtle grid background ──────────────────────── */
+.cyber-grid-bg {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+.holographic {
+  background: linear-gradient(135deg, rgba(255,215,0,0.1), rgba(0,255,170,0.1), rgba(168,85,247,0.1), rgba(255,215,0,0.1));
+  background-size: 400% 400%;
+  animation: border-flow 6s ease infinite;
+}
+
+/* ─── Scanlines (very subtle) ──────────────────────────────── */
+.scanlines::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.03) 3px, rgba(0,0,0,0.03) 6px);
+  pointer-events: none;
+  z-index: 9999;
+}
