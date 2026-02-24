@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0D0D0D" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>CryptoBet — Premium Casino</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Barlow+Condensed:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+      * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: #0D0D0D; overflow-x: hidden; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+      :root {
+        /* Premium dark palette */
+        --bg-primary: #0D0D0D;
+        --bg-secondary: #121212;
+        --bg-card: #1A1A1A;
+        --bg-elevated: #222222;
+        --border-subtle: rgba(255,255,255,0.06);
+        --border-medium: rgba(255,255,255,0.1);
+        /* Accent colors */
+        --gold: #FFD700;
+        --gold-dim: #B8960F;
+        --emerald: #00FFAA;
+        --emerald-dim: #00CC88;
+        --ruby: #FF0055;
+        --ruby-dim: #CC0044;
+        --purple: #A855F7;
+        --cyan: #06B6D4;
+        --white-high: rgba(255,255,255,0.92);
+        --white-med: rgba(255,255,255,0.6);
+        --white-low: rgba(255,255,255,0.3);
+        --white-muted: rgba(255,255,255,0.12);
+        /* Glass */
+        --glass-bg: rgba(255,255,255,0.04);
+        --glass-border: rgba(255,255,255,0.08);
+        --glass-hover: rgba(255,255,255,0.07);
+        /* Fonts */
+        --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        --font-heading: 'Barlow Condensed', 'Inter', sans-serif;
+      }
+      /* Premium scrollbar */
+      ::-webkit-scrollbar { width: 3px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: rgba(255,215,0,0.2); border-radius: 2px; }
+      ::-webkit-scrollbar-thumb:hover { background: rgba(255,215,0,0.4); }
+      /* Animations */
+      @keyframes neon-pulse { 0%,100%{opacity:1;filter:brightness(1)} 50%{opacity:.85;filter:brightness(1.15)} }
+      @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+      @keyframes border-flow { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+      @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+      @keyframes glow-pulse { 0%,100%{box-shadow:0 0 20px rgba(255,215,0,0.15)} 50%{box-shadow:0 0 40px rgba(255,215,0,0.3)} }
+      @keyframes orb-float-1 { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(30px,-50px) scale(1.1)} 66%{transform:translate(-20px,30px) scale(0.9)} }
+      @keyframes orb-float-2 { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(-40px,30px) scale(0.95)} 66%{transform:translate(20px,-40px) scale(1.05)} }
+      @keyframes slide-up { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+      @keyframes fade-in { from{opacity:0} to{opacity:1} }
+      @keyframes glitch { 0%,100%{transform:translate(0)} 20%{transform:translate(-2px,2px)} 40%{transform:translate(2px,-1px)} 60%{transform:translate(-1px,1px)} 80%{transform:translate(1px,-2px)} }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
