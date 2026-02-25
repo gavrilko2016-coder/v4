@@ -22,6 +22,7 @@ import {
   IconBitcoin, IconTON, IconUSDT, IconStars, IconEthereum,
   IconHistory, IconWallet, IconEarn, IconProfile
 } from './components/Icons';
+import { PrivacyPolicy } from './components/PrivacyPolicy';
 
 type Tab = 'games' | 'history' | 'wallet' | 'earn' | 'profile';
 type GameId = 'dice' | 'coinflip' | 'crash' | 'blackjack' | 'mines' | 'slots';
@@ -723,6 +724,11 @@ function AppInner() {
 export function App() {
   const [splashDone, setSplashDone] = useState(false);
   const handleSplashDone = useCallback(() => setSplashDone(true), []);
+
+  // Simple router for Privacy Policy
+  if (window.location.pathname === '/privacy-policy') {
+    return <PrivacyPolicy />;
+  }
 
   return (
     <LanguageProvider>
