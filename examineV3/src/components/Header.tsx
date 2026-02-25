@@ -50,7 +50,7 @@ export function Header() {
             <div className="w-10 h-10 flex-shrink-0">
               <CryptoBetLogo size={40} />
             </div>
-            <div>
+            <div className="flex items-center gap-2">
               <p className="text-sm font-extrabold tracking-wide leading-none font-heading"
                 style={{
                   background: 'linear-gradient(135deg, #00ff88, #00ffcc, #bf00ff)',
@@ -59,7 +59,7 @@ export function Header() {
                 }}>
                 CryptoBet
               </p>
-              <p className="text-[9px] leading-none mt-0.5 tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>PREMIUM CASINO</p>
+              <div className="w-px h-3 bg-white/10" />
             </div>
           </div>
 
