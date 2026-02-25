@@ -24,6 +24,7 @@ import {
 } from './components/Icons';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfService } from './components/TermsOfService';
+import { Analytics } from '@vercel/analytics/react';
 
 type Tab = 'games' | 'history' | 'wallet' | 'earn' | 'profile';
 type GameId = 'dice' | 'coinflip' | 'crash' | 'blackjack' | 'mines' | 'slots';
@@ -741,6 +742,7 @@ export function App() {
       <WalletProvider>
         {!splashDone && <SplashScreen onDone={handleSplashDone} />}
         <AppInner />
+        <Analytics />
       </WalletProvider>
     </LanguageProvider>
   );
