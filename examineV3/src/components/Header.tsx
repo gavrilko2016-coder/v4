@@ -22,7 +22,6 @@ const CURRENCIES: Currency[] = ['STARS', 'TON', 'USDT', 'ETH', 'BTC'];
 function formatBalance(amount: number, currency: Currency): string {
   if (currency === 'BTC') return amount.toFixed(5);
   if (currency === 'ETH') return amount.toFixed(4);
-  if (currency === 'STARS') return amount.toFixed(2);
   return amount.toFixed(2);
 }
 

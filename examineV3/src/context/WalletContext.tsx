@@ -179,7 +179,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const claimDailyBonus = useCallback((): boolean => {
     if (!getDailyBonusAvailable()) return false;
-    setWallet(prev => ({ ...prev, STARS: +(prev.STARS + 1).toFixed(0) }));
+    setWallet(prev => ({ ...prev, STARS: +(prev.STARS + 1).toFixed(2) }));
     setTransactions(prev => [{
       id: crypto.randomUUID(),
       type: 'deposit',
