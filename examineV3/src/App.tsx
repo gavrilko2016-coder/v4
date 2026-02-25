@@ -23,6 +23,7 @@ import {
   IconHistory, IconWallet, IconEarn, IconProfile
 } from './components/Icons';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
+import { TermsOfService } from './components/TermsOfService';
 
 type Tab = 'games' | 'history' | 'wallet' | 'earn' | 'profile';
 type GameId = 'dice' | 'coinflip' | 'crash' | 'blackjack' | 'mines' | 'slots';
@@ -728,6 +729,11 @@ export function App() {
   // Simple router for Privacy Policy
   if (window.location.pathname === '/privacy-policy') {
     return <PrivacyPolicy />;
+  }
+
+  // Simple router for Terms of Service
+  if (window.location.pathname === '/terms-of-service') {
+    return <TermsOfService />;
   }
 
   return (
