@@ -256,6 +256,39 @@ async function telegramStarsWebhook(req: Request, res: Response) {
   res.sendStatus(200);
 }
 
+/**
+ * POST /api/onramper-webhook
+ * Webhook for Onramper fiat-to-crypto notifications.
+ *
+ * Documentation: https://docs.onramper.com/docs/webhooks
+ */
+async function onramperWebhook(req: Request, res: Response) {
+  try {
+    const signature = req.headers['x-onramper-webhook-signature'];
+    // In production, verify signature here using your Onramper secret
+
+    const { type, payload } = req.body;
+    console.log(`💳 Onramper Webhook [${type}]:`, payload);
+
+    if (type === 'transaction_completed') {
+      const { txId, cryptoAmount, currency, walletAddress, meta } = payload;
+      
+      // If you passed userId in metadata during widget init
+      const userId = meta?.userId;
+      
+      if (userId) {
+        console.log(`✅ Crediting user ${userId}: ${cryptoAmount} ${currency}`);
+        // await db.creditUser(userId, cryptoAmount, currency, txId);
+      }
+    }
+
+    res.status(200).send('OK');
+  } catch (err) {
+    console.error('Onramper webhook error:', err);
+    res.status(500).send('Internal Server Error');
+  }
+}
+
 // ── Router setup ───────────────────────────────────────────────────────────
 
 /**
@@ -277,6 +310,7 @@ export function setupRoutes(app: {
   app.get('/api/balance', authMiddleware as unknown as (req: Request, res: Response) => void, getBalance);
   app.post('/api/withdraw', authMiddleware as unknown as (req: Request, res: Response) => void, postWithdraw);
   app.post('/api/telegram-stars-webhook', telegramStarsWebhook);
+  app.post('/api/onramper-webhook', onramperWebhook);
 }
 
 export { verifyTelegramAuth, authMiddleware };
