@@ -100,6 +100,8 @@
   font-weight: 700;
   margin-top: 0.5rem;
   letter-spacing: 2px;
+  text-align: center;
+  width: 100%;
 }
 
 .text-white { color: #fff; }
@@ -200,4 +202,24 @@
   font-size: 0.8rem;
   color: #666;
   margin-top: 0.5rem;
+}
+
+@media (max-width: 480px) {
+  .crash-container {
+    padding: 1rem;
+    gap: 1rem;
+  }
+  .crash-display {
+    height: 240px;
+  }
+  .multiplier-text {
+    font-size: 3.5rem;
+  }
+  .status-text {
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+  }
+  .crash-controls {
+    grid-template-columns: 1fr;
+  }
 }

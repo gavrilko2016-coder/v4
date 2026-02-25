@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useWallet } from '../context/WalletContext';
 import { useLanguage } from '../context/LanguageContext';
-import { OnlineCounter } from './OnlineCounter';
 import { DepositModal } from './DepositModal';
 import { playClick } from '../utils/sounds';
 import type { Currency } from '../types';
@@ -63,9 +62,6 @@ export function Header() {
               <p className="text-[9px] leading-none mt-0.5 tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>PREMIUM CASINO</p>
             </div>
           </div>
-
-          {/* Online Counter */}
-          <OnlineCounter />
 
           {/* Deposit Button — Premium Gold */}
           <button onClick={() => { playClick(); setShowDeposit(true); }}

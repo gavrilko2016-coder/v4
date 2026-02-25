@@ -48,6 +48,26 @@ export function BetControls({ onBet, disabled = false, label }: BetControlsProps
 
   return (
     <div className="rounded-2xl p-4 space-y-3 cyber-card" style={{ border: `1px solid ${color}33` }}>
+      {/* Bet Button */}
+      <button
+        onClick={handleSubmit}
+        disabled={!isValid || disabled}
+        className="w-full py-3.5 rounded-xl font-black text-base font-mono transition-all active:scale-95 disabled:opacity-40 order-first mb-4"
+        style={isValid && !disabled ? {
+          background: `linear-gradient(135deg, ${color}33, ${color}55)`,
+          border: `1px solid ${color}66`,
+          color,
+          boxShadow: `0 0 20px ${color}33`,
+          textShadow: `0 0 10px ${color}`,
+        } : {
+          background: '#13131f',
+          border: '1px solid #1e1e3a',
+          color: '#ffffff33',
+        }}
+      >
+        {label || t.placeBet}
+      </button>
+
       {/* Balance */}
       <div className="flex items-center justify-between">
         <span className="text-xs font-mono font-bold" style={{ color: `${color}88` }}>
@@ -108,26 +128,6 @@ export function BetControls({ onBet, disabled = false, label }: BetControlsProps
           </button>
         ))}
       </div>
-
-      {/* Bet Button */}
-      <button
-        onClick={handleSubmit}
-        disabled={!isValid || disabled}
-        className="w-full py-3.5 rounded-xl font-black text-base font-mono transition-all active:scale-95 disabled:opacity-40"
-        style={isValid && !disabled ? {
-          background: `linear-gradient(135deg, ${color}33, ${color}55)`,
-          border: `1px solid ${color}66`,
-          color,
-          boxShadow: `0 0 20px ${color}33`,
-          textShadow: `0 0 10px ${color}`,
-        } : {
-          background: '#13131f',
-          border: '1px solid #1e1e3a',
-          color: '#ffffff33',
-        }}
-      >
-        {label || t.placeBet}
-      </button>
     </div>
   );
 }

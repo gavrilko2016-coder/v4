@@ -549,7 +549,7 @@ function AppInner() {
                               border: '1px solid rgba(255,255,255,0.12)',
                               color: 'rgba(255,255,255,0.9)',
                             }}>
-                            {game.tag}
+                            {game.name}
                           </span>
                         </div>
 
@@ -571,7 +571,7 @@ function AppInner() {
                             </span>
                             <div className="flex items-center gap-1.5">
                               <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#00FFAA', boxShadow: '0 0 6px #00FFAA' }} />
-                              <span className="text-[9px] font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>LIVE</span>
+                              <span className="text-[9px] font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>{game.tag}</span>
                             </div>
                           </div>
                         </div>
