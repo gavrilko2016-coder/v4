@@ -126,7 +126,7 @@ function WalletTab() {
         {Object.entries(wallet).map(([currency, balance]) => {
           const color = CURRENCY_COLORS[currency];
           const pct = Math.min(100, (balance / (currency === 'BTC' ? 0.1 : currency === 'ETH' ? 5 : currency === 'STARS' ? 10000 : 2000)) * 100);
-          const fmt = currency === 'BTC' ? balance.toFixed(5) : currency === 'ETH' ? balance.toFixed(4) : currency === 'STARS' ? Math.floor(balance).toString() : balance.toFixed(2);
+          const fmt = currency === 'BTC' ? balance.toFixed(5) : currency === 'ETH' ? balance.toFixed(4) : currency === 'STARS' ? balance.toFixed(2) : balance.toFixed(2);
 
           return (
             <div key={currency} className="rounded-2xl p-4" style={{
