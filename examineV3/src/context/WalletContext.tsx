@@ -39,6 +39,10 @@ const INITIAL_WALLET: Wallet = {
   STARS: 0,
 };
 
+const WALLET_KEY = 'cryptobet_wallet_v1';
+const TX_KEY = 'cryptobet_tx_v1';
+const CURR_KEY = 'cryptobet_selected_currency_v1';
+
 // Daily bonus tracking
 const DAILY_BONUS_KEY = 'cryptobet_daily_bonus_last';
 export function getDailyBonusAvailable(): boolean {
@@ -63,12 +67,68 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   // Bot credits integration — syncs STARS balance from Telegram bot
   const bot = useBotCredits();
 
+  // Load persisted state on mount
+  useEffect(() => {
+    try {
+      const w = localStorage.getItem(WALLET_KEY);
+      if (w) {
+        const parsed = JSON.parse(w);
+        const next: Wallet = {
+          BTC: Number(parsed.BTC) || 0,
+          ETH: Number(parsed.ETH) || 0,
+          TON: Number(parsed.TON) || 0,
+          USDT: Number(parsed.USDT) || 0,
+          STARS: Number(parsed.STARS) || 0,
+        };
+        setWallet(next);
+      }
+    } catch {}
+    try {
+      const t = localStorage.getItem(TX_KEY);
+      if (t) {
+        const arr = JSON.parse(t) as any[];
+        const next: Transaction[] = arr.map(item => ({
+          id: String(item.id),
+          type: item.type,
+          game: item.game,
+          amount: Number(item.amount) || 0,
+          currency: item.currency,
+          timestamp: new Date(item.timestamp),
+          won: !!item.won,
+        })).slice(0, 200);
+        setTransactions(next);
+      }
+    } catch {}
+    try {
+      const c = localStorage.getItem(CURR_KEY);
+      if (c) setSelectedCurrency(c as Currency);
+    } catch {}
+  }, []);
+
+  // Persist state when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(WALLET_KEY, JSON.stringify(wallet));
+    } catch {}
+  }, [wallet]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(TX_KEY, JSON.stringify(transactions));
+    } catch {}
+  }, [transactions]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(CURR_KEY, selectedCurrency);
+    } catch {}
+  }, [selectedCurrency]);
+
   // Keep wallet.STARS in sync with bot credits
   useEffect(() => {
     if (bot.credits > 0 || bot.isInTelegram) {
       setWallet(prev => {
-        if (prev.STARS === bot.credits) return prev;
-        return { ...prev, STARS: bot.credits };
+        const synced = Math.max(prev.STARS ?? 0, bot.credits ?? 0);
+        if (prev.STARS === synced) return prev;
+        return { ...prev, STARS: synced };
       });
     }
   }, [bot.credits, bot.isInTelegram]);
