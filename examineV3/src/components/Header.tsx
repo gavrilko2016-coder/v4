@@ -6,6 +6,7 @@ import { playClick } from '../utils/sounds';
 import type { Currency } from '../types';
 import { IconUSDT, IconBitcoin, IconTON, IconStars, IconEthereum } from './Icons';
 import { CryptoBetLogo } from './SplashScreen';
+import { LinkAccountModal } from './LinkAccountModal';
 
 const CURRENCY_ICONS: Record<Currency, React.ReactNode> = {
   BTC: <IconBitcoin className="w-5 h-5" />,
@@ -30,32 +31,13 @@ export function Header() {
   const { t } = useLanguage();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
-  const [usdRates, setUsdRates] = useState<Record<Currency, number>>({
-    BTC: 0, ETH: 0, TON: 0, USDT: 1, STARS: 0.01,
-  });
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [linkedEmail, setLinkedEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,the-open-network,tether&vs_currencies=usd');
-        const data = await res.json();
-        setUsdRates(prev => ({
-          ...prev,
-          BTC: data?.bitcoin?.usd ?? prev.BTC,
-          ETH: data?.ethereum?.usd ?? prev.ETH,
-          TON: data?.['the-open-network']?.usd ?? prev.TON,
-          USDT: 1,
-        }));
-      } catch {}
-    };
-    load();
-    const id = setInterval(load, 300000);
-    return () => clearInterval(id);
+    const saved = localStorage.getItem('linkedEmail');
+    if (saved) setLinkedEmail(saved);
   }, []);
-
-  const formatUSD = (value: number) => {
-    return `$${value.toFixed(2)}`;
-  };
 
   return (
     <>
@@ -117,7 +99,7 @@ export function Header() {
                   {selectedCurrency}
                 </p>
                 <p className="text-sm font-bold leading-tight text-white tabular-nums">
-                  {formatUSD(wallet[selectedCurrency] * (usdRates[selectedCurrency] ?? 0))}
+                  {formatBalance(wallet[selectedCurrency], selectedCurrency)}
                 </p>
               </div>
               <svg className={`w-3 h-3 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`}
@@ -150,7 +132,7 @@ export function Header() {
                     <div className="text-left flex-1">
                       <p className="text-[10px] font-medium tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>{c}</p>
                       <p className="text-sm font-bold text-white tabular-nums">
-                        {formatUSD(wallet[c] * (usdRates[c] ?? 0))}
+                        {formatBalance(wallet[c], c)}
                       </p>
                     </div>
                     {c === selectedCurrency && (
@@ -167,9 +149,38 @@ export function Header() {
             )}
           </div>
         </div>
+        {/* Email link row */}
+        <div className="px-4 pb-3 -mt-1">
+          {linkedEmail ? (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="opacity-70">✉️</span>
+              <a
+                href={`mailto:${linkedEmail}`}
+                className="font-semibold"
+                style={{ color: '#00f5ff' }}
+              >
+                {linkedEmail}
+              </a>
+            </div>
+          ) : (
+            <button
+              onClick={() => { playClick(); setShowAuthModal(true); }}
+              className="text-xs font-semibold hover:underline"
+              style={{ color: '#00f5ff' }}
+            >
+              Привʼязати email
+            </button>
+          )}
+        </div>
       </header>
 
       {showDeposit && <DepositModal onClose={() => setShowDeposit(false)} />}
+      {showAuthModal && (
+        <LinkAccountModal
+          onClose={() => setShowAuthModal(false)}
+          onLinked={(email) => { setLinkedEmail(email); setShowAuthModal(false); }}
+        />
+      )}
     </>
   );
 }

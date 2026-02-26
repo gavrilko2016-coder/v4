@@ -17,6 +17,7 @@ import { DepositModal } from './components/DepositModal';
 import { WithdrawModal } from './components/WithdrawModal';
 import { LiveWinsFeed } from './components/LiveWinsFeed';
 import { SplashScreen } from './components/SplashScreen';
+import { ProfilePanel } from './components/ProfilePanel';
 import {
   IconCrash, IconMines, IconDice, IconBlackjack, IconCoinFlip, IconSlots,
   IconBitcoin, IconTON, IconUSDT, IconStars, IconEthereum,
@@ -70,30 +71,6 @@ function WalletTab() {
   const { wallet, transactions } = useWallet();
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
-  const [usdRates, setUsdRates] = useState<Record<string, number>>({
-    BTC: 0, ETH: 0, TON: 0, USDT: 1, STARS: 0.01,
-  });
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,the-open-network,tether&vs_currencies=usd');
-        const data = await res.json();
-        setUsdRates(prev => ({
-          ...prev,
-          BTC: data?.bitcoin?.usd ?? prev.BTC,
-          ETH: data?.ethereum?.usd ?? prev.ETH,
-          TON: data?.['the-open-network']?.usd ?? prev.TON,
-          USDT: 1,
-        }));
-      } catch {}
-    };
-    load();
-    const id = setInterval(load, 300000);
-    return () => clearInterval(id);
-  }, []);
-
-  const formatUSD = (value: number) => `$${value.toFixed(2)}`;
 
   const CURRENCY_ICONS: Record<string, React.ReactNode> = {
     BTC: <IconBitcoin className="w-6 h-6" />,
@@ -135,9 +112,9 @@ function WalletTab() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'DEPOSITED', value: `$${totalDeposited.toFixed(0)}`, color: '#FFD700' },
-          { label: 'WON', value: `$${totalWon.toFixed(0)}`, color: '#00FFAA' },
-          { label: 'LOST', value: `$${totalLost.toFixed(0)}`, color: '#FF0055' },
+          { label: 'DEPOSITED', value: totalDeposited.toFixed(2), color: '#FFD700' },
+          { label: 'WON', value: totalWon.toFixed(2), color: '#00FFAA' },
+          { label: 'LOST', value: totalLost.toFixed(2), color: '#FF0055' },
         ].map(s => (
           <div key={s.label} className="rounded-2xl p-4 text-center"
             style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -219,204 +196,7 @@ function WalletTab() {
 }
 
 // ─── Profile Tab ─────────────────────────────────────────────────────────────
-function ProfilePanel() {
-  const { wallet, transactions } = useWallet();
-  const { t, language, setLanguage } = useLanguage();
-  const [soundOn, setSoundOn] = useState(isSoundEnabled());
-  const [showLangPicker, setShowLangPicker] = useState(false);
-
-  const gameTxs = transactions.filter(tx => tx.type !== 'deposit');
-  const totalWins = transactions.filter(tx => tx.won).length;
-  const winRate = gameTxs.length > 0 ? ((gameTxs.filter(tx => tx.won).length / gameTxs.length) * 100).toFixed(1) : '0.0';
-  const CURRENCY_COLORS: Record<string, string> = { BTC: '#f7931a', ETH: '#627eea', TON: '#06B6D4', USDT: '#26a17b', STARS: '#FFD700' };
-  const CURRENCY_ICONS: Record<string, React.ReactNode> = {
-    BTC: <IconBitcoin className="w-5 h-5" />,
-    ETH: <IconEthereum className="w-5 h-5" />,
-    TON: <IconTON className="w-5 h-5" />,
-    USDT: <IconUSDT className="w-5 h-5" />,
-    STARS: <IconStars className="w-5 h-5" />
-  };
-
-  const toggleSound = () => {
-    const next = !soundOn;
-    setSoundOn(next);
-    setSoundEnabled(next);
-    if (next) playClick();
-  };
-
-  return (
-    <div className="space-y-5">
-      {/* Avatar Card */}
-      <div className="rounded-2xl p-5" style={{
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.06)',
-        backdropFilter: 'blur(16px)',
-      }}>
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl animate-float flex-shrink-0"
-            style={{
-              background: 'linear-gradient(135deg, rgba(255,215,0,0.12), rgba(0,255,170,0.08))',
-              border: '1px solid rgba(255,215,0,0.2)',
-              boxShadow: '0 8px 24px rgba(255,215,0,0.1)',
-            }}>
-            🎰
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-extrabold text-white text-lg font-heading tracking-wide">PLAYER_01</p>
-            <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.35)' }}>@telegram_user</p>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#00FFAA' }} />
-              <span className="text-[10px] font-bold tracking-wider" style={{ color: '#00FFAA' }}>ONLINE</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wider"
-                style={{ background: 'rgba(255,215,0,0.1)', border: '1px solid rgba(255,215,0,0.2)', color: '#FFD700' }}>VIP LVL 3</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: 'TOTAL BETS', value: gameTxs.length, color: '#06B6D4' },
-          { label: 'WINS', value: totalWins, color: '#00FFAA' },
-          { label: 'WIN RATE', value: `${winRate}%`, color: '#FFD700' },
-        ].map(stat => (
-          <div key={stat.label} className="rounded-2xl p-4 text-center"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <p className="text-2xl font-extrabold tabular-nums" style={{ color: stat.color }}>{stat.value}</p>
-            <p className="text-[9px] mt-1 font-semibold tracking-[0.15em]" style={{ color: 'rgba(255,255,255,0.3)' }}>{stat.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Wallet Balances */}
-      <div className="rounded-2xl p-4 space-y-3" style={{
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.06)',
-      }}>
-        <p className="text-[10px] font-semibold tracking-[0.2em]" style={{ color: 'rgba(255,215,0,0.4)' }}>WALLET BALANCES</p>
-        {Object.entries(wallet).map(([currency, balance]) => {
-          const color = CURRENCY_COLORS[currency];
-          const pct = Math.min(100, (balance / (currency === 'BTC' ? 0.1 : currency === 'ETH' ? 5 : currency === 'STARS' ? 10000 : 2000)) * 100);
-          return (
-            <div key={currency} className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: `${color}12`, border: `1px solid ${color}20` }}>
-                <span style={{ color }}>{CURRENCY_ICONS[currency]}</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>{currency}</span>
-                  <span className="text-xs font-bold text-white tabular-nums">
-                    {formatUSD(balance * (usdRates[currency] ?? 0))}
-                  </span>
-                </div>
-                <div className="mt-1.5 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                  <div className="h-full rounded-full transition-all duration-700"
-                    style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${color}88, ${color})` }} />
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Settings */}
-      <div className="rounded-2xl p-4 space-y-4" style={{
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.06)',
-      }}>
-        <p className="text-[10px] font-semibold tracking-[0.2em]" style={{ color: 'rgba(168,85,247,0.5)' }}>SETTINGS</p>
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="text-lg">{soundOn ? '🔊' : '🔇'}</span>
-            <span className="text-sm font-medium text-white">{t.sound}</span>
-          </div>
-          <button onClick={toggleSound}
-            className="relative w-12 h-6 rounded-full transition-all duration-300"
-            style={{
-              background: soundOn ? 'linear-gradient(135deg, #FFD700, #F0C000)' : 'rgba(255,255,255,0.1)',
-              boxShadow: soundOn ? '0 0 12px rgba(255,215,0,0.3)' : 'none',
-            }}>
-            <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-lg transition-transform duration-300"
-              style={{ transform: soundOn ? 'translateX(26px)' : 'translateX(2px)' }} />
-          </button>
-        </div>
-
-        <div className="h-px" style={{ background: 'rgba(255,255,255,0.05)' }} />
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="text-lg">🌐</span>
-            <span className="text-sm font-medium text-white">{t.language}</span>
-          </div>
-          <button onClick={() => { playClick(); setShowLangPicker(v => !v); }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium transition-all"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'white' }}>
-            {LANGUAGE_NAMES[language]}
-            <svg className={`w-3 h-3 transition-transform duration-200 ${showLangPicker ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,0.4)">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-        </div>
-
-        {showLangPicker && (
-          <div className="rounded-xl overflow-hidden animate-slide-up" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-            {(Object.keys(LANGUAGE_NAMES) as Language[]).map(lang => (
-              <button key={lang}
-                onClick={() => { playNavSwitch(); setLanguage(lang); setShowLangPicker(false); }}
-                className="w-full flex items-center justify-between px-4 py-3 text-sm transition-all"
-                style={{
-                  background: lang === language ? 'rgba(255,215,0,0.06)' : 'rgba(255,255,255,0.02)',
-                  color: lang === language ? '#FFD700' : 'rgba(255,255,255,0.7)',
-                  fontWeight: lang === language ? 600 : 400,
-                  borderBottom: '1px solid rgba(255,255,255,0.04)',
-                }}>
-                <span>{LANGUAGE_NAMES[lang]}</span>
-                {lang === language && (
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: '#FFD700' }}>
-                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#0D0D0D" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Achievements */}
-      <div className="rounded-2xl p-4" style={{
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.06)',
-      }}>
-        <p className="text-[10px] font-semibold tracking-[0.2em] mb-3" style={{ color: 'rgba(255,215,0,0.4)' }}>ACHIEVEMENTS</p>
-        <div className="flex flex-wrap gap-2">
-          {[
-            { label: 'FIRST BET', color: '#FFD700', icon: '🎖' },
-            { label: 'HODLER', color: '#06B6D4', icon: '💎' },
-            { label: 'DEGEN', color: '#A855F7', icon: '🚀' },
-            { label: 'CARD SHARK', color: '#00FFAA', icon: '🃏' },
-            { label: '???', color: 'rgba(255,255,255,0.15)', icon: '🔒' },
-            { label: '???', color: 'rgba(255,255,255,0.15)', icon: '🔒' },
-          ].map((b, i) => (
-            <span key={i} className="px-3 py-1.5 rounded-xl text-[11px] font-semibold tracking-wide"
-              style={{ background: `${b.color}10`, border: `1px solid ${b.color}30`, color: b.color }}>
-              {b.icon} {b.label}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-xl p-3 text-[11px] text-center font-medium"
-        style={{ color: 'rgba(255,255,255,0.2)' }}>
-        🛡 PLAY RESPONSIBLY · 18+ · CryptoBet
-      </div>
-    </div>
-  );
-}
+// (moved to src/components/ProfilePanel.tsx)
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 function AppInner() {

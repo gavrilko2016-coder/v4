@@ -243,25 +243,6 @@ export function DepositModal({ onClose }: DepositModalProps) {
 
   const tgWebApp = window.Telegram?.WebApp;
 
-  const trackConversion = (conversionId?: string, amount?: number) => {
-    try {
-      const tapFn = (window as any).tap;
-      const cid = telegramId != null ? String(telegramId) : undefined;
-      if (typeof tapFn === 'function') {
-        if (cid) {
-          tapFn('conversion', conversionId, amount, { customer_id: cid });
-        } else if (typeof amount === 'number') {
-          tapFn('conversion', conversionId, amount);
-        } else if (conversionId) {
-          tapFn('conversion', conversionId);
-        } else {
-          tapFn('conversion');
-        }
-      }
-    } catch {
-    }
-  };
-
   const showSuccess = (msg: string) => {
     setSuccessMsg(msg);
     playDeposit();
@@ -297,7 +278,6 @@ export function DepositModal({ onClose }: DepositModalProps) {
       if (txHash) {
         addDeposit(amount, 'ETH');
         showSuccess(`✅ ${amount} ETH deposited! TX: ${txHash.slice(0,10)}...`);
-        trackConversion(txHash, amount);
         setEthAmount('');
         setProcessingDeposit(false);
         return;
@@ -307,7 +287,6 @@ export function DepositModal({ onClose }: DepositModalProps) {
     await new Promise(r => setTimeout(r, 1500));
     addDeposit(amount, 'ETH');
     showSuccess(`✅ ${amount} ETH added to balance!`);
-    trackConversion(`eth-${Date.now()}`, amount);
     setEthAmount('');
     setProcessingDeposit(false);
   };
@@ -324,7 +303,6 @@ export function DepositModal({ onClose }: DepositModalProps) {
       if (ok) {
         addDeposit(amount, 'TON');
         showSuccess(`✅ ${amount} TON deposited!`);
-        trackConversion(`ton-${Date.now()}`, amount);
         setTonAmount('');
         setProcessingDeposit(false);
         return;
@@ -334,7 +312,6 @@ export function DepositModal({ onClose }: DepositModalProps) {
     await new Promise(r => setTimeout(r, 1500));
     addDeposit(amount, 'TON');
     showSuccess(`✅ ${amount} TON added to balance!`);
-    trackConversion(`ton-${Date.now()}`, amount);
     setTonAmount('');
     setProcessingDeposit(false);
   };

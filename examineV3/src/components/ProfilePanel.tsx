@@ -2,38 +2,38 @@ import { useState } from 'react';
 import { useWallet } from '../context/WalletContext';
 import { useLanguage, LANGUAGE_NAMES, type Language } from '../context/LanguageContext';
 import { setSoundEnabled, isSoundEnabled, playClick, playNavSwitch } from '../utils/sounds';
-
-const CURRENCY_ICONS: Record<string, string> = {
-  BTC: '₿', ETH: 'Ξ', TON: '💎', USDT: '₮', STARS: '⭐',
-};
-
-const CURRENCY_COLORS: Record<string, string> = {
-  BTC: 'from-orange-500 to-yellow-500',
-  ETH: 'from-purple-500 to-indigo-500',
-  TON: 'from-blue-500 to-cyan-500',
-  USDT: 'from-green-500 to-emerald-500',
-  STARS: 'from-yellow-400 to-amber-400',
-};
-
-const CURRENCIES = ['BTC', 'ETH', 'TON', 'USDT', 'STARS'] as const;
-
-function formatBalance(amount: number, currency: string): string {
-  const val = Number(amount) || 0;
-  if (currency === 'BTC') return val.toFixed(5);
-  if (currency === 'ETH') return val.toFixed(4);
-  return val.toFixed(2);
-}
+import { IconBitcoin, IconEthereum, IconTON, IconUSDT, IconStars } from './Icons';
+import { LinkAccountModal } from './LinkAccountModal';
+import type { Currency } from '../types';
 
 export function ProfilePanel() {
   const { wallet, transactions } = useWallet();
   const { t, language, setLanguage } = useLanguage();
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
   const [showLangPicker, setShowLangPicker] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const safeTx = Array.isArray(transactions) ? transactions : [];
   const totalWins = safeTx.filter(t => t.won).length;
   const winRate = safeTx.length > 0 ? ((totalWins / safeTx.length) * 100).toFixed(1) : '0.0';
   const totalDeposits = safeTx.filter(t => t.type === 'deposit').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+
+  const CURRENCIES: Currency[] = ['STARS', 'TON', 'USDT', 'ETH', 'BTC'];
+  const CURRENCY_COLORS: Record<string, string> = { 
+    BTC: 'from-orange-500 to-yellow-500', 
+    ETH: 'from-purple-500 to-indigo-500', 
+    TON: 'from-blue-500 to-cyan-500', 
+    USDT: 'from-green-500 to-emerald-500', 
+    STARS: 'from-yellow-400 to-amber-400' 
+  };
+  
+  const CURRENCY_ICONS: Record<string, React.ReactNode> = {
+    BTC: <IconBitcoin className="w-5 h-5" />,
+    ETH: <IconEthereum className="w-5 h-5" />,
+    TON: <IconTON className="w-5 h-5" />,
+    USDT: <IconUSDT className="w-5 h-5" />,
+    STARS: <IconStars className="w-5 h-5" />,
+  };
 
   const toggleSound = () => {
     const next = !soundOn;
@@ -41,6 +41,13 @@ export function ProfilePanel() {
     setSoundEnabled(next);
     if (next) playClick();
   };
+
+  function formatBalance(amount: number, currency: string): string {
+    const val = Number(amount) || 0;
+    if (currency === 'BTC') return val.toFixed(5);
+    if (currency === 'ETH') return val.toFixed(4);
+    return val.toFixed(2);
+  }
 
   return (
     <div className="space-y-4">
@@ -115,6 +122,20 @@ export function ProfilePanel() {
       <div className="bg-gray-800/60 rounded-2xl p-4 border border-white/5 space-y-3">
         <p className="text-sm font-bold text-gray-300">{t?.settings || 'Settings'}</p>
 
+        {/* Link Account */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🔐</span>
+            <span className="text-sm text-white">Account Security</span>
+          </div>
+          <button
+            onClick={() => { playClick(); setShowAuthModal(true); }}
+            className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30 rounded-xl text-xs font-bold text-yellow-500 transition-colors"
+          >
+            Link Email
+          </button>
+        </div>
+
         {/* Sound Toggle */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -187,6 +208,8 @@ export function ProfilePanel() {
       <div className="bg-blue-500/5 border border-blue-500/20 rounded-2xl p-4 text-xs text-gray-400 text-center">
         🛡 Play responsibly · 18+ · CryptoBet
       </div>
+
+      {showAuthModal && <LinkAccountModal onClose={() => setShowAuthModal(false)} />}
     </div>
   );
 }
