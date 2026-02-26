@@ -6,6 +6,11 @@ export interface Wallet {
   TON: number;
   USDT: number;
   STARS: number;
+  // Bonus System
+  bonus_balance: number;
+  wagering_required: number;
+  wagering_progress: number;
+  free_spins: number;
 }
 
 export type GameType = 'dice' | 'coinflip' | 'crash' | 'slots' | 'blackjack' | 'mines';

@@ -179,7 +179,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const claimDailyBonus = useCallback((): boolean => {
     if (!getDailyBonusAvailable()) return false;
-    setWallet(prev => ({ ...prev, STARS: +(prev.STARS + 1).toFixed(2) }));
+    setWallet(prev => ({ 
+      ...prev, 
+      STARS: +(prev.STARS + 1).toFixed(2),
+      // Example: Daily bonus also gives 5 free spins if user is lucky (random 20%)
+      free_spins: Math.random() < 0.2 ? prev.free_spins + 5 : prev.free_spins
+    }));
     setTransactions(prev => [{
       id: crypto.randomUUID(),
       type: 'deposit',

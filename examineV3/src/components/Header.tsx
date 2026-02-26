@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWallet } from '../context/WalletContext';
 import { useLanguage } from '../context/LanguageContext';
 import { DepositModal } from './DepositModal';
@@ -30,6 +30,32 @@ export function Header() {
   const { t } = useLanguage();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
+  const [usdRates, setUsdRates] = useState<Record<Currency, number>>({
+    BTC: 0, ETH: 0, TON: 0, USDT: 1, STARS: 0.01,
+  });
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,the-open-network,tether&vs_currencies=usd');
+        const data = await res.json();
+        setUsdRates(prev => ({
+          ...prev,
+          BTC: data?.bitcoin?.usd ?? prev.BTC,
+          ETH: data?.ethereum?.usd ?? prev.ETH,
+          TON: data?.['the-open-network']?.usd ?? prev.TON,
+          USDT: 1,
+        }));
+      } catch {}
+    };
+    load();
+    const id = setInterval(load, 300000);
+    return () => clearInterval(id);
+  }, []);
+
+  const formatUSD = (value: number) => {
+    return `$${value.toFixed(2)}`;
+  };
 
   return (
     <>
@@ -91,7 +117,7 @@ export function Header() {
                   {selectedCurrency}
                 </p>
                 <p className="text-sm font-bold leading-tight text-white tabular-nums">
-                  {formatBalance(wallet[selectedCurrency], selectedCurrency)}
+                  {formatUSD(wallet[selectedCurrency] * (usdRates[selectedCurrency] ?? 0))}
                 </p>
               </div>
               <svg className={`w-3 h-3 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`}
@@ -123,7 +149,9 @@ export function Header() {
                     </div>
                     <div className="text-left flex-1">
                       <p className="text-[10px] font-medium tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>{c}</p>
-                      <p className="text-sm font-bold text-white tabular-nums">{formatBalance(wallet[c], c)}</p>
+                      <p className="text-sm font-bold text-white tabular-nums">
+                        {formatUSD(wallet[c] * (usdRates[c] ?? 0))}
+                      </p>
                     </div>
                     {c === selectedCurrency && (
                       <div className="w-5 h-5 rounded-full flex items-center justify-center"

@@ -70,6 +70,30 @@ function WalletTab() {
   const { wallet, transactions } = useWallet();
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
+  const [usdRates, setUsdRates] = useState<Record<string, number>>({
+    BTC: 0, ETH: 0, TON: 0, USDT: 1, STARS: 0.01,
+  });
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,the-open-network,tether&vs_currencies=usd');
+        const data = await res.json();
+        setUsdRates(prev => ({
+          ...prev,
+          BTC: data?.bitcoin?.usd ?? prev.BTC,
+          ETH: data?.ethereum?.usd ?? prev.ETH,
+          TON: data?.['the-open-network']?.usd ?? prev.TON,
+          USDT: 1,
+        }));
+      } catch {}
+    };
+    load();
+    const id = setInterval(load, 300000);
+    return () => clearInterval(id);
+  }, []);
+
+  const formatUSD = (value: number) => `$${value.toFixed(2)}`;
 
   const CURRENCY_ICONS: Record<string, React.ReactNode> = {
     BTC: <IconBitcoin className="w-6 h-6" />,
@@ -284,7 +308,7 @@ function ProfilePanel() {
                 <div className="flex justify-between items-center">
                   <span className="text-xs font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>{currency}</span>
                   <span className="text-xs font-bold text-white tabular-nums">
-                    {currency === 'BTC' ? balance.toFixed(5) : currency === 'ETH' ? balance.toFixed(4) : balance.toFixed(2)}
+                    {formatUSD(balance * (usdRates[currency] ?? 0))}
                   </span>
                 </div>
                 <div className="mt-1.5 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
