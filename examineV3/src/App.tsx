@@ -81,6 +81,12 @@ function WalletTab() {
   };
   const CURRENCY_COLORS: Record<string, string> = { BTC: '#f7931a', ETH: '#627eea', TON: '#06B6D4', USDT: '#26a17b', STARS: '#FFD700' };
   const CURRENCY_NAMES: Record<string, string> = { BTC: 'Bitcoin', ETH: 'Ethereum', TON: 'TON', USDT: 'Tether', STARS: 'Telegram Stars' };
+  const USD_RATES: Record<string, number> = { BTC: 67420, ETH: 3521, TON: 5.84, USDT: 1, STARS: 0.02 };
+  const fmtUSD = (amount: number, currency: string) => {
+    const usd = (Number(amount) || 0) * (USD_RATES[currency] ?? 0);
+    if (usd >= 1000) return `$${usd.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+    return `$${usd.toFixed(2)}`;
+  };
 
   const totalDeposited = transactions.filter(t => t.type === 'deposit').reduce((s, t) => s + t.amount, 0);
   const totalWon = transactions.filter(t => t.won && t.type !== 'deposit').reduce((s, t) => s + t.amount, 0);
@@ -94,7 +100,7 @@ function WalletTab() {
           onClick={() => { playClick(); setShowDeposit(true); }}
           className="btn-premium-gold py-3.5 rounded-2xl font-bold text-sm tracking-wide transition-all active:scale-95"
           style={{ fontFamily: 'var(--font-heading)' }}>
-          ⚡ DEPOSIT
+          ⚡ {t.deposit}
         </button>
         <button
           onClick={() => { playClick(); setShowWithdraw(true); }}
@@ -105,7 +111,7 @@ function WalletTab() {
             color: '#FF0055',
             fontFamily: 'var(--font-heading)',
           }}>
-          💸 WITHDRAW
+          💸 {t.withdraw}
         </button>
       </div>
 
@@ -126,11 +132,11 @@ function WalletTab() {
 
       {/* Wallet Cards */}
       <div className="space-y-3">
-        <p className="text-[10px] font-semibold tracking-[0.2em]" style={{ color: 'rgba(255,215,0,0.4)' }}>YOUR BALANCES</p>
+        <p className="text-[10px] font-semibold tracking-[0.2em]" style={{ color: 'rgba(255,215,0,0.4)' }}>{t.walletBalances.toUpperCase?.() ?? t.walletBalances}</p>
         {Object.entries(wallet).map(([currency, balance]) => {
           const color = CURRENCY_COLORS[currency];
           const pct = Math.min(100, (balance / (currency === 'BTC' ? 0.1 : currency === 'ETH' ? 5 : currency === 'STARS' ? 10000 : 2000)) * 100);
-          const fmt = currency === 'BTC' ? balance.toFixed(5) : currency === 'ETH' ? balance.toFixed(4) : currency === 'STARS' ? balance.toFixed(2) : balance.toFixed(2);
+          const fmt = fmtUSD(balance, currency);
 
           return (
             <div key={currency} className="rounded-2xl p-4" style={{
@@ -167,7 +173,7 @@ function WalletTab() {
       {/* Recent deposits */}
       {transactions.filter(t => t.type === 'deposit').length > 0 && (
         <div className="space-y-2">
-          <p className="text-[10px] font-semibold tracking-[0.2em]" style={{ color: 'rgba(168,85,247,0.4)' }}>RECENT DEPOSITS</p>
+          <p className="text-[10px] font-semibold tracking-[0.2em]" style={{ color: 'rgba(168,85,247,0.4)' }}>{t.recentDeposits.toUpperCase?.() ?? t.recentDeposits}</p>
           {transactions.filter(t => t.type === 'deposit').slice(0, 5).map(tx => (
             <div key={tx.id} className="flex items-center justify-between p-3.5 rounded-xl"
               style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -175,7 +181,7 @@ function WalletTab() {
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm"
                   style={{ background: 'rgba(0,255,170,0.08)', border: '1px solid rgba(0,255,170,0.15)' }}>💳</div>
                 <div>
-                  <p className="text-xs font-bold text-white">Deposit</p>
+                  <p className="text-xs font-bold text-white">{t.deposit}</p>
                   <p className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.3)' }}>
                     {tx.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
@@ -238,8 +244,8 @@ function AppInner() {
   const NAV_TABS: { id: Tab; label: string; icon: React.ReactNode; color: string }[] = [
     { id: 'games',   label: t.games,   icon: <IconDice className="w-6 h-6" />, color: '#FFD700' },
     { id: 'history', label: t.history, icon: <IconHistory className="w-6 h-6" />, color: '#A855F7' },
-    { id: 'wallet',  label: 'Wallet',  icon: <IconWallet className="w-6 h-6" />, color: '#00FFAA' },
-    { id: 'earn',    label: 'Earn',    icon: <IconEarn className="w-6 h-6" />, color: '#06B6D4' },
+    { id: 'wallet',  label: t.wallet,  icon: <IconWallet className="w-6 h-6" />, color: '#00FFAA' },
+    { id: 'earn',    label: t.earn,    icon: <IconEarn className="w-6 h-6" />, color: '#06B6D4' },
     { id: 'profile', label: t.profile, icon: <IconProfile className="w-6 h-6" />, color: '#FF0055' },
   ];
 

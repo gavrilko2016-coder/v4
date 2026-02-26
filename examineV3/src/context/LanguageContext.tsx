@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 export type Language = 'en' | 'uk' | 'ru' | 'de' | 'tr' | 'pt' | 'es' | 'fr' | 'it' | 'id' | 'hi';
 
@@ -7,9 +7,17 @@ export interface Translations {
   games: string;
   history: string;
   profile: string;
+  wallet: string;
+  earn: string;
   // Header
   deposit: string;
   online: string;
+  // Account linking
+  linkEmail: string;
+  // Wallet/Finance
+  withdraw: string;
+  recentDeposits: string;
+  accountSecurity: string;
   // Games
   chooseGame: string;
   liveJackpot: string;
@@ -120,8 +128,8 @@ export interface Translations {
 }
 
 const EN: Translations = {
-  games: 'Games', history: 'History', profile: 'Profile',
-  deposit: 'Deposit', online: 'Online',
+  games: 'Games', history: 'History', profile: 'Profile', wallet: 'Wallet', earn: 'Earn',
+  deposit: 'Deposit', online: 'Online', linkEmail: 'Link Email', withdraw: 'Withdraw', recentDeposits: 'Recent Deposits', accountSecurity: 'Account Security',
   chooseGame: 'Choose a Game', liveJackpot: 'Live Jackpot', winBigIn: 'Win Big in', crypto: 'Crypto!',
   instantPayouts: '5 games · Instant payouts · No KYC', comingSoon: 'Coming Soon',
   dailyBonus: 'Daily Bonus Available!', dailyBonusDesc: 'Claim 1 TON every day for free', claim: 'Claim',
@@ -152,8 +160,8 @@ const EN: Translations = {
 };
 
 const UK: Translations = {
-  games: 'Ігри', history: 'Історія', profile: 'Профіль',
-  deposit: 'Поповнення', online: 'Онлайн',
+  games: 'Ігри', history: 'Історія', profile: 'Профіль', wallet: 'Гаманець', earn: 'Заробити',
+  deposit: 'Поповнення', online: 'Онлайн', linkEmail: 'Привʼязати email', withdraw: 'Вивести', recentDeposits: 'Останні поповнення', accountSecurity: 'Безпека акаунта',
   chooseGame: 'Оберіть гру', liveJackpot: 'Живий Джекпот', winBigIn: 'Великий виграш у', crypto: 'Крипті!',
   instantPayouts: '5 ігор · Миттєві виплати · Без KYC', comingSoon: 'Незабаром',
   dailyBonus: 'Щоденний бонус!', dailyBonusDesc: 'Отримайте 1 TON щодня безкоштовно', claim: 'Забрати',
@@ -184,8 +192,8 @@ const UK: Translations = {
 };
 
 const RU: Translations = {
-  games: 'Игры', history: 'История', profile: 'Профиль',
-  deposit: 'Пополнить', online: 'Онлайн',
+  games: 'Игры', history: 'История', profile: 'Профиль', wallet: 'Кошелёк', earn: 'Заработать',
+  deposit: 'Пополнить', online: 'Онлайн', linkEmail: 'Привязать email', withdraw: 'Вывести', recentDeposits: 'Недавние пополнения', accountSecurity: 'Безопасность аккаунта',
   chooseGame: 'Выберите игру', liveJackpot: 'Живой Джекпот', winBigIn: 'Выигрывайте в', crypto: 'Крипте!',
   instantPayouts: '5 игр · Мгновенные выплаты · Без KYC', comingSoon: 'Скоро',
   dailyBonus: 'Ежедневный бонус!', dailyBonusDesc: 'Получайте 1 TON каждый день бесплатно', claim: 'Забрать',
@@ -216,8 +224,8 @@ const RU: Translations = {
 };
 
 const DE: Translations = {
-  games: 'Spiele', history: 'Verlauf', profile: 'Profil',
-  deposit: 'Einzahlung', online: 'Online',
+  games: 'Spiele', history: 'Verlauf', profile: 'Profil', wallet: 'Wallet', earn: 'Verdienen',
+  deposit: 'Einzahlung', online: 'Online', linkEmail: 'E-Mail verknüpfen', withdraw: 'Auszahlen', recentDeposits: 'Letzte Einzahlungen', accountSecurity: 'Kontosicherheit',
   chooseGame: 'Spiel wählen', liveJackpot: 'Live Jackpot', winBigIn: 'Groß gewinnen in', crypto: 'Krypto!',
   instantPayouts: '5 Spiele · Sofortige Auszahlung · Kein KYC', comingSoon: 'Demnächst',
   dailyBonus: 'Täglicher Bonus!', dailyBonusDesc: 'Täglich 1 TON kostenlos beanspruchen', claim: 'Beanspruchen',
@@ -248,8 +256,8 @@ const DE: Translations = {
 };
 
 const TR: Translations = {
-  games: 'Oyunlar', history: 'Geçmiş', profile: 'Profil',
-  deposit: 'Para Yatır', online: 'Çevrimiçi',
+  games: 'Oyunlar', history: 'Geçmiş', profile: 'Profil', wallet: 'Cüzdan', earn: 'Kazanç',
+  deposit: 'Para Yatır', online: 'Çevrimiçi', linkEmail: 'E-postayı bağla', withdraw: 'Çek', recentDeposits: 'Son yatırımlar', accountSecurity: 'Hesap güvenliği',
   chooseGame: 'Oyun Seç', liveJackpot: 'Canlı Jackpot', winBigIn: 'Büyük Kazan', crypto: 'Kripto!',
   instantPayouts: '5 oyun · Anlık ödeme · KYC yok', comingSoon: 'Yakında',
   dailyBonus: 'Günlük Bonus!', dailyBonusDesc: 'Her gün ücretsiz 1 TON al', claim: 'Al',
@@ -280,8 +288,8 @@ const TR: Translations = {
 };
 
 const PT: Translations = {
-  games: 'Jogos', history: 'Histórico', profile: 'Perfil',
-  deposit: 'Depositar', online: 'Online',
+  games: 'Jogos', history: 'Histórico', profile: 'Perfil', wallet: 'Carteira', earn: 'Ganhar',
+  deposit: 'Depositar', online: 'Online', linkEmail: 'Vincular e-mail', withdraw: 'Sacar', recentDeposits: 'Depósitos recentes', accountSecurity: 'Segurança da conta',
   chooseGame: 'Escolha um Jogo', liveJackpot: 'Jackpot ao Vivo', winBigIn: 'Ganhe Grande em', crypto: 'Cripto!',
   instantPayouts: '5 jogos · Pagamentos instantâneos · Sem KYC', comingSoon: 'Em Breve',
   dailyBonus: 'Bônus Diário!', dailyBonusDesc: 'Claim 10 TON todos os dias de graça', claim: 'Receber',
@@ -312,8 +320,8 @@ const PT: Translations = {
 };
 
 const ES: Translations = {
-  games: 'Juegos', history: 'Historial', profile: 'Perfil',
-  deposit: 'Depósito', online: 'En línea',
+  games: 'Juegos', history: 'Historial', profile: 'Perfil', wallet: 'Billetera', earn: 'Ganar',
+  deposit: 'Depósito', online: 'En línea', linkEmail: 'Vincular correo', withdraw: 'Retirar', recentDeposits: 'Depósitos recientes', accountSecurity: 'Seguridad de la cuenta',
   chooseGame: 'Elige un juego', liveJackpot: 'Bote en vivo', winBigIn: 'Gana a lo grande en', crypto: '¡Cripto!',
   instantPayouts: '5 juegos · Pagos instantáneos · Sin KYC', comingSoon: 'Próximamente',
   dailyBonus: '¡Bono diario!', dailyBonusDesc: 'Reclama 1 estrella gratis cada día', claim: 'Reclamar',
@@ -344,8 +352,8 @@ const ES: Translations = {
 };
 
 const FR: Translations = {
-  games: 'Jeux', history: 'Historique', profile: 'Profil',
-  deposit: 'Dépôt', online: 'En ligne',
+  games: 'Jeux', history: 'Historique', profile: 'Profil', wallet: 'Portefeuille', earn: 'Gagner',
+  deposit: 'Dépôt', online: 'En ligne', linkEmail: 'Lier l’e‑mail', withdraw: 'Retrait', recentDeposits: 'Dépôts récents', accountSecurity: 'Sécurité du compte',
   chooseGame: 'Choisir un jeu', liveJackpot: 'Jackpot en direct', winBigIn: 'Gagnez gros en', crypto: 'Crypto !',
   instantPayouts: '5 jeux · Paiements instantanés · Pas de KYC', comingSoon: 'Bientôt',
   dailyBonus: 'Bonus quotidien !', dailyBonusDesc: 'Réclamez 1 étoile gratuitement chaque jour', claim: 'Réclamer',
@@ -376,8 +384,8 @@ const FR: Translations = {
 };
 
 const IT: Translations = {
-  games: 'Giochi', history: 'Cronologia', profile: 'Profilo',
-  deposit: 'Deposito', online: 'Online',
+  games: 'Giochi', history: 'Cronologia', profile: 'Profilo', wallet: 'Portafoglio', earn: 'Guadagna',
+  deposit: 'Deposito', online: 'Online', linkEmail: 'Collega email', withdraw: 'Prelievo', recentDeposits: 'Depositi recenti', accountSecurity: 'Sicurezza account',
   chooseGame: 'Scegli un gioco', liveJackpot: 'Jackpot dal vivo', winBigIn: 'Vinci alla grande in', crypto: 'Cripto!',
   instantPayouts: '5 giochi · Pagamenti istantanei · No KYC', comingSoon: 'Presto',
   dailyBonus: 'Bonus giornaliero!', dailyBonusDesc: 'Richiedi 1 stella gratis ogni giorno', claim: 'Richiedi',
@@ -408,8 +416,8 @@ const IT: Translations = {
 };
 
 const ID: Translations = {
-  games: 'Permainan', history: 'Riwayat', profile: 'Profil',
-  deposit: 'Setoran', online: 'Online',
+  games: 'Permainan', history: 'Riwayat', profile: 'Profil', wallet: 'Dompet', earn: 'Dapatkan',
+  deposit: 'Setoran', online: 'Online', linkEmail: 'Tautkan email', withdraw: 'Tarik', recentDeposits: 'Setoran terbaru', accountSecurity: 'Keamanan akun',
   chooseGame: 'Pilih Permainan', liveJackpot: 'Jackpot Langsung', winBigIn: 'Menang Besar di', crypto: 'Kripto!',
   instantPayouts: '5 permainan · Pembayaran instan · Tanpa KYC', comingSoon: 'Segera',
   dailyBonus: 'Bonus Harian!', dailyBonusDesc: 'Klaim 1 Bintang gratis setiap hari', claim: 'Klaim',
@@ -440,8 +448,8 @@ const ID: Translations = {
 };
 
 const HI: Translations = {
-  games: 'खेल', history: 'इतिहास', profile: 'प्रोफाइल',
-  deposit: 'जमा करें', online: 'ऑनलाइन',
+  games: 'खेल', history: 'इतिहास', profile: 'प्रोफाइल', wallet: 'वॉलेट', earn: 'कमाएँ',
+  deposit: 'जमा करें', online: 'ऑनलाइन', linkEmail: 'ईमेल जोड़ें', withdraw: 'निकासी', recentDeposits: 'हालिया जमा', accountSecurity: 'खाते की सुरक्षा',
   chooseGame: 'खेल चुनें', liveJackpot: 'लाइव जैकपॉट', winBigIn: 'बड़ा जीतें', crypto: 'क्रिप्टो!',
   instantPayouts: '5 खेल · तत्काल भुगतान · कोई KYC नहीं', comingSoon: 'जल्द आ रहा है',
   dailyBonus: 'दैनिक बोनस!', dailyBonusDesc: 'रोज़ 1 स्टार मुफ़्त पाएं', claim: 'दावा करें',
@@ -487,7 +495,13 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | null>(null);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>('en');
+  const [language, setLanguage] = useState<Language>(() => {
+    const saved = localStorage.getItem('cryptobet_language_v1') as Language | null;
+    return saved && (['en','uk','ru','de','tr','pt','es','fr','it','id','hi'] as Language[]).includes(saved as Language) ? saved as Language : 'en';
+  });
+  useEffect(() => {
+    try { localStorage.setItem('cryptobet_language_v1', language); } catch {}
+  }, [language]);
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t: TRANSLATIONS[language] }}>
       {children}

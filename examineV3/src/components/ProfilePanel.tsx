@@ -42,11 +42,11 @@ export function ProfilePanel() {
     if (next) playClick();
   };
 
-  function formatBalance(amount: number, currency: string): string {
-    const val = Number(amount) || 0;
-    if (currency === 'BTC') return val.toFixed(5);
-    if (currency === 'ETH') return val.toFixed(4);
-    return val.toFixed(2);
+  const USD_RATES: Record<string, number> = { BTC: 67420, ETH: 3521, TON: 5.84, USDT: 1, STARS: 0.02 };
+  function formatUsd(amount: number, currency: string): string {
+    const usd = (Number(amount) || 0) * (USD_RATES[currency] ?? 0);
+    if (usd >= 1000) return `$${usd.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+    return `$${usd.toFixed(2)}`;
   }
 
   return (
@@ -61,7 +61,7 @@ export function ProfilePanel() {
           <p className="text-gray-400 text-sm">@telegram_user</p>
           <div className="flex items-center gap-1 mt-1">
             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
-            <span className="text-xs text-green-400">Online</span>
+            <span className="text-xs text-green-400">{t.online}</span>
           </div>
         </div>
         <div className="text-right">
@@ -104,7 +104,7 @@ export function ProfilePanel() {
             <div className="flex-1">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-white">{currency}</span>
-                <span className="text-sm font-bold text-white">{formatBalance(val, currency)}</span>
+                <span className="text-sm font-bold text-white">{formatUsd(val, currency)}</span>
               </div>
               <div className="mt-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
                 <div
@@ -126,13 +126,13 @@ export function ProfilePanel() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg">🔐</span>
-            <span className="text-sm text-white">Account Security</span>
+            <span className="text-sm text-white">{t.accountSecurity}</span>
           </div>
           <button
             onClick={() => { playClick(); setShowAuthModal(true); }}
             className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30 rounded-xl text-xs font-bold text-yellow-500 transition-colors"
           >
-            Link Email
+            {t.linkEmail}
           </button>
         </div>
 

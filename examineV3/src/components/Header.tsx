@@ -20,10 +20,17 @@ const CURRENCY_COLORS: Record<Currency, string> = {
 };
 const CURRENCIES: Currency[] = ['STARS', 'TON', 'USDT', 'ETH', 'BTC'];
 
-function formatBalance(amount: number, currency: Currency): string {
-  if (currency === 'BTC') return amount.toFixed(5);
-  if (currency === 'ETH') return amount.toFixed(4);
-  return amount.toFixed(2);
+const USD_RATES: Record<Currency, number> = {
+  BTC: 67420,
+  ETH: 3521,
+  TON: 5.84,
+  USDT: 1,
+  STARS: 0.02,
+};
+function formatUSD(amount: number, currency: Currency): string {
+  const usd = (Number(amount) || 0) * (USD_RATES[currency] ?? 0);
+  if (usd >= 1000) return `$${usd.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+  return `$${usd.toFixed(2)}`;
 }
 
 export function Header() {
@@ -99,7 +106,7 @@ export function Header() {
                   {selectedCurrency}
                 </p>
                 <p className="text-sm font-bold leading-tight text-white tabular-nums">
-                  {formatBalance(wallet[selectedCurrency], selectedCurrency)}
+                  {formatUSD(wallet[selectedCurrency], selectedCurrency)}
                 </p>
               </div>
               <svg className={`w-3 h-3 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`}
@@ -132,7 +139,7 @@ export function Header() {
                     <div className="text-left flex-1">
                       <p className="text-[10px] font-medium tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>{c}</p>
                       <p className="text-sm font-bold text-white tabular-nums">
-                        {formatBalance(wallet[c], c)}
+                        {formatUSD(wallet[c], c)}
                       </p>
                     </div>
                     {c === selectedCurrency && (
@@ -168,7 +175,7 @@ export function Header() {
               className="text-xs font-semibold hover:underline"
               style={{ color: '#00f5ff' }}
             >
-              Привʼязати email
+              {t.linkEmail}
             </button>
           )}
         </div>
