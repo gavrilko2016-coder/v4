@@ -18,9 +18,10 @@ const CURRENCY_COLORS: Record<string, string> = {
 const CURRENCIES = ['BTC', 'ETH', 'TON', 'USDT', 'STARS'] as const;
 
 function formatBalance(amount: number, currency: string): string {
-  if (currency === 'BTC') return amount.toFixed(5);
-  if (currency === 'ETH') return amount.toFixed(4);
-  return amount.toFixed(2);
+  const val = Number(amount) || 0;
+  if (currency === 'BTC') return val.toFixed(5);
+  if (currency === 'ETH') return val.toFixed(4);
+  return val.toFixed(2);
 }
 
 export function ProfilePanel() {
@@ -29,9 +30,10 @@ export function ProfilePanel() {
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
   const [showLangPicker, setShowLangPicker] = useState(false);
 
-  const totalWins = transactions.filter(t => t.won).length;
-  const winRate = transactions.length > 0 ? ((totalWins / transactions.length) * 100).toFixed(1) : '0.0';
-  const totalDeposits = transactions.filter(t => t.type === 'deposit').reduce((s, t) => s + t.amount, 0);
+  const safeTx = Array.isArray(transactions) ? transactions : [];
+  const totalWins = safeTx.filter(t => t.won).length;
+  const winRate = safeTx.length > 0 ? ((totalWins / safeTx.length) * 100).toFixed(1) : '0.0';
+  const totalDeposits = safeTx.filter(t => t.type === 'deposit').reduce((s, t) => s + (Number(t.amount) || 0), 0);
 
   const toggleSound = () => {
     const next = !soundOn;
@@ -64,27 +66,29 @@ export function ProfilePanel() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-gray-800/60 rounded-xl p-3 border border-white/5 text-center">
-          <p className="text-2xl font-black text-white">{transactions.filter(t => t.type !== 'deposit').length}</p>
-          <p className="text-xs text-gray-500 mt-0.5">{t.totalBets}</p>
+          <p className="text-2xl font-black text-white">{safeTx.filter(t => t.type !== 'deposit').length}</p>
+          <p className="text-xs text-gray-500 mt-0.5">{t?.totalBets || 'Bets'}</p>
         </div>
         <div className="bg-gray-800/60 rounded-xl p-3 border border-white/5 text-center">
           <p className="text-2xl font-black text-green-400">{totalWins}</p>
-          <p className="text-xs text-gray-500 mt-0.5">{t.wins}</p>
+          <p className="text-xs text-gray-500 mt-0.5">{t?.wins || 'Wins'}</p>
         </div>
         <div className="bg-gray-800/60 rounded-xl p-3 border border-white/5 text-center">
           <p className="text-2xl font-black text-yellow-400">{winRate}%</p>
-          <p className="text-xs text-gray-500 mt-0.5">{t.winRate}</p>
+          <p className="text-xs text-gray-500 mt-0.5">{t?.winRate || 'Rate'}</p>
         </div>
       </div>
 
       {/* Wallet Balances */}
       <div className="bg-gray-800/60 rounded-2xl p-4 border border-white/5 space-y-3">
-        <p className="text-sm font-bold text-gray-300">{t.walletBalances}</p>
+        <p className="text-sm font-bold text-gray-300">{t?.walletBalances || 'Wallet'}</p>
         {CURRENCIES.map((currency) => {
-          const balance = (wallet as Record<string, number>)[currency] ?? 0;
+          const balance = (wallet as any)?.[currency] ?? 0;
           const gradient = CURRENCY_COLORS[currency] ?? 'from-gray-600 to-gray-700';
           const icon = CURRENCY_ICONS[currency] ?? '◈';
-          const pct = Math.min(100, (balance / (currency === 'BTC' ? 0.1 : currency === 'ETH' ? 5 : 2000)) * 100);
+          const val = Number(balance) || 0;
+          const pct = Math.min(100, (val / (currency === 'BTC' ? 0.1 : currency === 'ETH' ? 5 : 2000)) * 100);
+          
           return (
           <div key={currency} className="flex items-center gap-3">
             <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center text-sm font-bold text-white shadow-sm`}>
@@ -93,7 +97,7 @@ export function ProfilePanel() {
             <div className="flex-1">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-white">{currency}</span>
-                <span className="text-sm font-bold text-white">{formatBalance(balance, currency)}</span>
+                <span className="text-sm font-bold text-white">{formatBalance(val, currency)}</span>
               </div>
               <div className="mt-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
                 <div
@@ -109,13 +113,13 @@ export function ProfilePanel() {
 
       {/* Settings */}
       <div className="bg-gray-800/60 rounded-2xl p-4 border border-white/5 space-y-3">
-        <p className="text-sm font-bold text-gray-300">{t.settings}</p>
+        <p className="text-sm font-bold text-gray-300">{t?.settings || 'Settings'}</p>
 
         {/* Sound Toggle */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg">{soundOn ? '🔊' : '🔇'}</span>
-            <span className="text-sm text-white">{t.sound}</span>
+            <span className="text-sm text-white">{t?.sound || 'Sound'}</span>
           </div>
           <button
             onClick={toggleSound}
@@ -129,7 +133,7 @@ export function ProfilePanel() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg">🌐</span>
-            <span className="text-sm text-white">{t.language}</span>
+            <span className="text-sm text-white">{t?.language || 'Language'}</span>
           </div>
           <button
             onClick={() => { playClick(); setShowLangPicker(v => !v); }}
@@ -169,7 +173,7 @@ export function ProfilePanel() {
 
       {/* Badges */}
       <div className="bg-gray-800/60 rounded-2xl p-4 border border-white/5 space-y-3">
-        <p className="text-sm font-bold text-gray-300">{t.achievements}</p>
+        <p className="text-sm font-bold text-gray-300">{t?.achievements || 'Achievements'}</p>
         <div className="flex flex-wrap gap-2">
           <span className="px-3 py-1.5 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-xs font-semibold text-yellow-400">🎖 First Bet</span>
           <span className="px-3 py-1.5 bg-blue-500/10 border border-blue-500/30 rounded-lg text-xs font-semibold text-blue-400">💎 HODLer</span>
