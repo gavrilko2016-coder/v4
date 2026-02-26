@@ -15,6 +15,8 @@ const CURRENCY_COLORS: Record<string, string> = {
   STARS: 'from-yellow-400 to-amber-400',
 };
 
+const CURRENCIES = ['BTC', 'ETH', 'TON', 'USDT', 'STARS'] as const;
+
 function formatBalance(amount: number, currency: string): string {
   if (currency === 'BTC') return amount.toFixed(5);
   if (currency === 'ETH') return amount.toFixed(4);
@@ -78,10 +80,15 @@ export function ProfilePanel() {
       {/* Wallet Balances */}
       <div className="bg-gray-800/60 rounded-2xl p-4 border border-white/5 space-y-3">
         <p className="text-sm font-bold text-gray-300">{t.walletBalances}</p>
-        {Object.entries(wallet).map(([currency, balance]) => (
+        {CURRENCIES.map((currency) => {
+          const balance = (wallet as Record<string, number>)[currency] ?? 0;
+          const gradient = CURRENCY_COLORS[currency] ?? 'from-gray-600 to-gray-700';
+          const icon = CURRENCY_ICONS[currency] ?? '◈';
+          const pct = Math.min(100, (balance / (currency === 'BTC' ? 0.1 : currency === 'ETH' ? 5 : 2000)) * 100);
+          return (
           <div key={currency} className="flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${CURRENCY_COLORS[currency]} flex items-center justify-center text-sm font-bold text-white shadow-sm`}>
-              {CURRENCY_ICONS[currency]}
+            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center text-sm font-bold text-white shadow-sm`}>
+              {icon}
             </div>
             <div className="flex-1">
               <div className="flex items-center justify-between">
@@ -90,13 +97,14 @@ export function ProfilePanel() {
               </div>
               <div className="mt-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
                 <div
-                  className={`h-full bg-gradient-to-r ${CURRENCY_COLORS[currency]} rounded-full transition-all duration-500`}
-                  style={{ width: `${Math.min(100, (balance / (currency === 'BTC' ? 0.1 : currency === 'ETH' ? 5 : 2000)) * 100)}%` }}
+                  className={`h-full bg-gradient-to-r ${gradient} rounded-full transition-all duration-500`}
+                  style={{ width: `${pct}%` }}
                 />
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Settings */}
