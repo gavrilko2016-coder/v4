@@ -555,6 +555,35 @@ function AppInner() {
                   </div>
                 </div>
 
+              <div className="p-4" style={{ padding: '20px', textAlign: 'center' }}>
+                <button
+                  onClick={() => {
+                    const tap = (window as any).tap;
+                    if (tap) {
+                      const testId = 'TEST-' + Date.now();
+                      tap('conversion', testId, 50.0, { customer_id: 'test-user-' + Date.now() });
+                      console.log('Test conversion sent to Tapfiliate:', { id: testId, amount: 50.0 });
+                      alert('Тестова конверсія відправлена! Перевір Integration Tester або консоль.');
+                    } else {
+                      console.log('Tapfiliate скрипт ще не завантажився');
+                      alert('Tapfiliate ще не готовий. Онови сторінку і спробуй ще раз.');
+                    }
+                  }}
+                  style={{
+                    background: '#ff4d4d',
+                    color: 'white',
+                    padding: '12px 24px',
+                    fontSize: '18px',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    marginTop: '20px',
+                  }}
+                >
+                  Тест Tapfiliate Conversion (50$)
+                </button>
+              </div>
+
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                   {GAMES.map(game => {
                     return (
