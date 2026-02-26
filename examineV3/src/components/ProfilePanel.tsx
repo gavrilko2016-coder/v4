@@ -4,7 +4,7 @@ import { useLanguage, LANGUAGE_NAMES, type Language } from '../context/LanguageC
 import { setSoundEnabled, isSoundEnabled, playClick, playNavSwitch } from '../utils/sounds';
 
 const CURRENCY_ICONS: Record<string, string> = {
-  BTC: '₿', ETH: 'Ξ', TON: '💎', USDT: '₮',
+  BTC: '₿', ETH: 'Ξ', TON: '💎', USDT: '₮', STARS: '⭐',
 };
 
 const CURRENCY_COLORS: Record<string, string> = {
@@ -12,6 +12,7 @@ const CURRENCY_COLORS: Record<string, string> = {
   ETH: 'from-purple-500 to-indigo-500',
   TON: 'from-blue-500 to-cyan-500',
   USDT: 'from-green-500 to-emerald-500',
+  STARS: 'from-yellow-400 to-amber-400',
 };
 
 function formatBalance(amount: number, currency: string): string {
