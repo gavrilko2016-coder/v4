@@ -1,8 +1,9 @@
 import { useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import { WalletProvider } from './context/WalletContext';
-import { LanguageProvider, useLanguage, LANGUAGE_NAMES, type Language } from './context/LanguageContext';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { Header } from './components/Header';
 import { DiceGame } from './games/DiceGame';
+import { LimboGame } from './games/LimboGame';
 import { CoinFlipGame } from './games/CoinFlipGame';
 import { CrashGame } from './games/CrashGame';
 import { BlackjackGame } from './games/BlackjackGame';
@@ -12,14 +13,14 @@ import { HistoryPanel } from './components/HistoryPanel';
 import { EarnPanel } from './components/EarnPanel';
 import { CryptoPriceTicker, CryptoPriceList } from './components/CryptoPrices';
 import { useWallet, getDailyBonusAvailable, getNextDailyBonusTime } from './context/WalletContext';
-import { setSoundEnabled, isSoundEnabled, playClick, playNavSwitch, stopAllGameSounds, playWin } from './utils/sounds';
+import { playClick, playNavSwitch, stopAllGameSounds, playWin } from './utils/sounds';
 import { DepositModal } from './components/DepositModal';
 import { WithdrawModal } from './components/WithdrawModal';
 import { LiveWinsFeed } from './components/LiveWinsFeed';
 import { SplashScreen } from './components/SplashScreen';
 import { ProfilePanel } from './components/ProfilePanel';
 import {
-  IconCrash, IconMines, IconDice, IconBlackjack, IconCoinFlip, IconSlots,
+  IconCrash, IconMines, IconDice, IconBlackjack, IconCoinFlip, IconSlots, IconLimbo,
   IconBitcoin, IconTON, IconUSDT, IconStars, IconEthereum,
   IconHistory, IconWallet, IconEarn, IconProfile
 } from './components/Icons';
@@ -28,7 +29,7 @@ import { TermsOfService } from './components/TermsOfService';
 import { Analytics } from '@vercel/analytics/react';
 import { Tab } from './types';
 
-type GameId = 'dice' | 'coinflip' | 'crash' | 'blackjack' | 'mines' | 'slots';
+type GameId = 'dice' | 'coinflip' | 'crash' | 'blackjack' | 'mines' | 'slots' | 'limbo';
 
 const GAME_COLORS: Record<GameId, { neon: string; bg: string; border: string }> = {
   dice:      { neon: '#00FFAA', bg: 'rgba(0,255,170,0.06)', border: 'rgba(0,255,170,0.2)' },
@@ -37,6 +38,7 @@ const GAME_COLORS: Record<GameId, { neon: string; bg: string; border: string }> 
   blackjack: { neon: '#A855F7', bg: 'rgba(168,85,247,0.06)', border: 'rgba(168,85,247,0.2)' },
   mines:     { neon: '#06B6D4', bg: 'rgba(6,182,212,0.06)', border: 'rgba(6,182,212,0.2)' },
   slots:     { neon: '#F59E0B', bg: 'rgba(245,158,11,0.06)', border: 'rgba(245,158,11,0.2)' },
+  limbo:     { neon: '#8B5CF6', bg: 'rgba(139,92,246,0.06)', border: 'rgba(139,92,246,0.2)' },
 };
 const GAME_ICONS: Record<GameId, React.ReactNode> = {
   dice: <IconDice className="w-full h-full" />,
@@ -45,6 +47,7 @@ const GAME_ICONS: Record<GameId, React.ReactNode> = {
   blackjack: <IconBlackjack className="w-full h-full" />,
   mines: <IconMines className="w-full h-full" />,
   slots: <IconSlots className="w-full h-full" />,
+  limbo: <IconLimbo className="w-full h-full" />,
 };
 
 function PremiumBackground() {
@@ -314,6 +317,7 @@ function AppInner() {
     { id: 'blackjack', name: 'BLACKJACK', tag: 'CARD',     desc: 'Beat the dealer', imageColor: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
     { id: 'mines',     name: 'MINES',     tag: 'SKILL',    desc: 'Avoid the mines', imageColor: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)' },
     { id: 'coinflip',  name: 'COIN FLIP', tag: '50/50',    desc: 'Heads or tails', imageColor: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)' },
+    { id: 'limbo',     name: 'LIMBO',     tag: 'ROCKET',   desc: 'Fly to moon',    imageColor: 'linear-gradient(135deg, #8b5cf6 0%, #d8b4fe 100%)' },
     { id: 'slots',     name: 'SLOTS',     tag: 'CASINO',   desc: 'Spin to win', imageColor: 'linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%)' },
   ];
 
@@ -349,6 +353,7 @@ function AppInner() {
       case 'blackjack': return <BlackjackGame />;
       case 'mines':     return <DiamondMinesGame />;
       case 'slots':     return <SlotsGame />;
+      case 'limbo':     return <LimboGame />;
       default:          return null;
     }
   };

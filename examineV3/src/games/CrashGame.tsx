@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useWallet } from '../context/WalletContext';
 import { 
   playCrash, 
@@ -18,6 +18,8 @@ const AUTO_RESTART_DELAY = 3000; // 3 seconds
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 type GameState = 'IDLE' | 'STARTING' | 'FLYING' | 'CRASHED';
 
+const USD_RATES: Record<string, number> = { BTC: 67420, ETH: 3521, TON: 5.84, USDT: 1, STARS: 0.02 };
+
 export function CrashGame() {
   // Wallet Context
   const { wallet, placeBet, addWinnings, recordLoss, selectedCurrency } = useWallet();
@@ -29,14 +31,15 @@ export function CrashGame() {
   const [history, setHistory] = useState<number[]>([]);
   
   // Bet State
-  const [betAmount, setBetAmount] = useState<string>('10');
+  const [betAmountUsdt, setBetAmountUsdt] = useState<string>('10');
   const [hasBet, setHasBet] = useState(false); // Current round bet
   const [cashedOut, setCashedOut] = useState(false);
   const [payout, setPayout] = useState(0);
+  const placedBetAmountRef = useRef<number>(0);
 
   // Refs (Mutable state for animation loop)
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rafRef = useRef<number>();
+  const rafRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
   const crashPointRef = useRef<number>(0);
   const mountedRef = useRef(true);
@@ -50,7 +53,7 @@ export function CrashGame() {
 
     return () => {
       mountedRef.current = false;
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       stopAllGameSounds();
     };
   }, []);
@@ -102,34 +105,6 @@ export function CrashGame() {
     runGameLoop();
   };
 
-  // Phase 3: CRASHED (Handled in loop)
-  const handleCrash = (finalValue: number) => {
-    if (!mountedRef.current) return;
-
-    setGameState('CRASHED');
-    setMultiplier(finalValue);
-    drawGraph(finalValue, 'CRASHED');
-    
-    // Sounds
-    stopAllGameSounds();
-    playCrash();
-
-    // Update History
-    setHistory(prev => [finalValue, ...prev].slice(0, MAX_HISTORY));
-
-    // Result Logic
-    // We need to check hasBet ref-like because state might be stale in closure? 
-    // Actually relying on state inside handleCrash which is called from RAF might be tricky.
-    // But since handleCrash is called from runGameLoop which is a closure, we need to be careful.
-    // The runGameLoop is re-created? No, it's recursive RAF.
-    // We should use a ref for hasBet to be safe in the RAF loop? 
-    // Actually, let's just handle logic here. React state in RAF can be stale if not careful.
-    // However, we can check the latest state if we use refs for game logic or pass state.
-    // For simplicity, let's trust the component re-render updates the closure or use refs.
-    // Wait, RAF loop closes over variables.
-    // Better to use a ref for hasBet to check win/loss inside the loop logic.
-  };
-
   // We need a ref for hasBet because RAF loop won't see updated state easily
   const hasBetRef = useRef(false);
   const cashedOutRef = useRef(false);
@@ -139,6 +114,30 @@ export function CrashGame() {
     hasBetRef.current = hasBet;
     cashedOutRef.current = cashedOut;
   }, [hasBet, cashedOut]);
+
+  const rate = USD_RATES[selectedCurrency] || 0;
+  const balance = wallet[selectedCurrency] || 0;
+  const balanceUsdt = rate > 0 ? balance * rate : 0;
+  const numericBetUsdt = parseFloat(betAmountUsdt) || 0;
+  const isBetValid = numericBetUsdt > 0 && numericBetUsdt <= balanceUsdt;
+
+  const storageKey = `bet_amount_usdt_${selectedCurrency}`;
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored !== null) {
+        setBetAmountUsdt(stored);
+        return;
+      }
+    } catch {}
+  }, [storageKey, selectedCurrency]);
+
+  const updateBetAmountUsdt = (val: string) => {
+    setBetAmountUsdt(val);
+    try {
+      localStorage.setItem(storageKey, val);
+    } catch {}
+  };
 
   // ─── CORE LOGIC ────────────────────────────────────────────────────────────
 
@@ -150,8 +149,10 @@ export function CrashGame() {
   };
 
   const handleBet = () => {
-    const amount = parseFloat(betAmount);
-    if (isNaN(amount) || amount <= 0) return;
+    if (!isBetValid) return;
+
+    const amount = rate > 0 ? (numericBetUsdt / rate) : 0;
+    if (!Number.isFinite(amount) || amount <= 0) return;
     
     const success = placeBet(amount, selectedCurrency);
     if (!success) {
@@ -159,6 +160,7 @@ export function CrashGame() {
       return;
     }
 
+    placedBetAmountRef.current = amount;
     setHasBet(true);
     // No longer starting game here
   };
@@ -193,7 +195,7 @@ export function CrashGame() {
 
     // Check Loss
     if (hasBetRef.current && !cashedOutRef.current) {
-      const amount = parseFloat(betAmount);
+      const amount = placedBetAmountRef.current;
       recordLoss(amount, selectedCurrency, 'CRASH');
       playLoss();
     }
@@ -215,7 +217,7 @@ export function CrashGame() {
     if (gameState !== 'FLYING' || !hasBet || cashedOut) return;
 
     const currentMult = multiplier;
-    const amount = parseFloat(betAmount);
+    const amount = placedBetAmountRef.current;
     const winAmount = amount * currentMult;
 
     setCashedOut(true);
@@ -314,18 +316,18 @@ export function CrashGame() {
       <div className="crash-controls">
         <div className="control-panel">
           <div className="input-group">
-            <label className="input-label">Bet Amount ({selectedCurrency})</label>
+            <label className="input-label">Bet Amount (USDT)</label>
             <input 
               type="number" 
               className="bet-input" 
-              value={betAmount}
-              onChange={(e) => setBetAmount(e.target.value)}
+              value={betAmountUsdt}
+              onChange={(e) => updateBetAmountUsdt(e.target.value)}
               disabled={hasBet || gameState === 'FLYING'} 
             />
           </div>
           <div className="info-row">
             <span>Balance:</span>
-            <span className="text-white">{wallet[selectedCurrency].toFixed(4)}</span>
+            <span className="text-white">≈ ${balanceUsdt.toFixed(2)}</span>
           </div>
         </div>
 
@@ -338,7 +340,7 @@ export function CrashGame() {
             <button 
               className="action-btn btn-bet" 
               onClick={handleBet}
-              disabled={hasBet || (gameState !== 'IDLE' && gameState !== 'STARTING')}
+              disabled={!isBetValid || hasBet || (gameState !== 'IDLE' && gameState !== 'STARTING')}
             >
               {hasBet ? 'BET PLACED' : (gameState === 'STARTING' ? 'BET NOW' : 'BET')}
             </button>

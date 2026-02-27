@@ -186,18 +186,27 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [bot.credits, bot.isInTelegram]);
 
   const placeBet = useCallback((amount: number, currency: Currency): boolean => {
-    if (wallet[currency] < amount) return false;
-    
+    if (!Number.isFinite(amount) || amount <= 0) return false;
+
     const USD_RATES: Record<string, number> = { BTC: 67420, ETH: 3521, TON: 5.84, USDT: 1, STARS: 0.02 };
     const usdValue = amount * (USD_RATES[currency] || 0);
 
-    setWallet(prev => ({ 
-      ...prev, 
-      [currency]: +(prev[currency] - amount).toFixed(8),
-      wagering_progress: +(prev.wagering_progress + usdValue).toFixed(2)
-    }));
-    return true;
-  }, [wallet]);
+    let ok = true;
+    setWallet(prev => {
+      if ((prev[currency] ?? 0) < amount) {
+        ok = false;
+        return prev;
+      }
+
+      const nextBal = Math.max(0, +((prev[currency] ?? 0) - amount).toFixed(8));
+      return {
+        ...prev,
+        [currency]: nextBal,
+        wagering_progress: +(prev.wagering_progress + usdValue).toFixed(2)
+      };
+    });
+    return ok;
+  }, []);
 
   const addWinnings = useCallback((amount: number, currency: Currency, game: string) => {
     setWallet(prev => ({ ...prev, [currency]: +(prev[currency] + amount).toFixed(8) }));

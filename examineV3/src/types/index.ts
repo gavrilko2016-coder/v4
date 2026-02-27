@@ -19,7 +19,7 @@ export interface Wallet {
 
 export type Tab = 'games' | 'history' | 'wallet' | 'earn' | 'profile';
 
-export type GameType = 'dice' | 'coinflip' | 'crash' | 'slots' | 'blackjack' | 'mines';
+export type GameType = 'dice' | 'coinflip' | 'crash' | 'slots' | 'blackjack' | 'mines' | 'limbo';
 
 export interface BetResult {
   won: boolean;

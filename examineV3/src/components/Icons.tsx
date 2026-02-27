@@ -192,6 +192,35 @@ export const IconSlots: React.FC<IconProps> = ({ size = 24, className, ...props 
   </svg>
 );
 
+export const IconLimbo: React.FC<IconProps> = ({ size = 24, className, ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} {...props}>
+    <defs>
+      <linearGradient id="limbo_grad" x1="12" y1="12" x2="52" y2="52" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#8b5cf6"/>
+        <stop offset="1" stopColor="#6d28d9"/>
+      </linearGradient>
+      <filter id="limbo_glow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    {/* Outer target ring */}
+    <circle cx="32" cy="32" r="24" stroke="url(#limbo_grad)" strokeWidth="3" fill="none" filter="url(#limbo_glow)" opacity="0.8"/>
+    <circle cx="32" cy="32" r="24" stroke="#ffffff" strokeWidth="1" fill="none" opacity="0.2"/>
+    
+    {/* Middle ring segments */}
+    <path d="M32 16 A16 16 0 0 1 48 32" stroke="#a78bfa" strokeWidth="3" fill="none" strokeLinecap="round"/>
+    <path d="M32 48 A16 16 0 0 1 16 32" stroke="#a78bfa" strokeWidth="3" fill="none" strokeLinecap="round"/>
+    
+    {/* Center bullseye */}
+    <circle cx="32" cy="32" r="6" fill="#00ff88" filter="url(#limbo_glow)"/>
+    <circle cx="32" cy="32" r="3" fill="#ffffff"/>
+    
+    {/* Crosshairs */}
+    <line x1="32" y1="4" x2="32" y2="12" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round"/>
+    <line x1="32" y1="52" x2="32" y2="60" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round"/>
+    <line x1="4" y1="32" x2="12" y2="32" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round"/>
+    <line x1="52" y1="32" x2="60" y2="32" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+
 // ─── Currency Icons ──────────────────────────────────────────────────────────
 
 export const IconUSDT: React.FC<IconProps> = ({ size = 24, className, ...props }) => (
