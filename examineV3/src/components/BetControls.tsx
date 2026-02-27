@@ -62,7 +62,7 @@ export function BetControls({ onBet, disabled = false, label }: BetControlsProps
   };
 
   return (
-    <div className="rounded-2xl p-4 space-y-4 cyber-card bg-[#13131f] border border-white/5 relative z-20 max-md:sticky max-md:bottom-24 max-md:backdrop-blur-xl">
+    <div className="rounded-2xl p-4 space-y-4 cyber-card bg-[#13131f] border border-white/5 relative z-20">
       
       {/* Balance Header */}
       <div className="flex items-center justify-between text-xs font-bold tracking-wider text-white/40 mb-1">
