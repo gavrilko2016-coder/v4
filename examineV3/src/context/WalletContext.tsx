@@ -308,6 +308,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const withdraw = useCallback((amount: number, currency: Currency, address: string): boolean => {
     let ok = false;
+
+    // Withdrawal is locked until user makes a real deposit of at least $10.
+    // Promo bonuses do not increase total_deposited_usd (see redeemReferral), so they don't unlock withdrawals.
+    if ((wallet.total_deposited_usd ?? 0) < 10) return false;
     
     // Check balance
     if (wallet[currency] >= amount) {

@@ -175,9 +175,9 @@ export function WithdrawModal({ onClose }: { onClose: () => void }) {
   };
 
   const handleWithdraw = async () => {
-    // 1. Minimum Deposit Check ($20)
-    if ((wallet.total_deposited_usd || 0) < 20) {
-      setAmtError('Withdrawal locked: Minimum total deposit of $20 required.');
+    // 1. Minimum Deposit Check ($10)
+    if ((wallet.total_deposited_usd || 0) < 10) {
+      setAmtError('Щоб вивести кошти, потрібно зробити депозит мінімум на $10. Після депозиту ти зможеш зняти кошти.');
       return;
     }
 
