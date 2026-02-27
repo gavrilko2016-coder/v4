@@ -58,7 +58,7 @@ export function Header() {
         {/* Top gold accent line */}
         <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,215,0,0.4), rgba(0,255,170,0.3), transparent)' }} />
 
-        <div className="flex items-center justify-between px-4 py-3 gap-3">
+        <div className="max-w-[1920px] mx-auto flex items-center justify-between px-4 py-3 gap-3">
           {/* Logo */}
           <div className="flex items-center gap-2.5 flex-shrink-0">
             <div className="w-10 h-10 flex-shrink-0">

@@ -17,6 +17,8 @@ export interface Wallet {
   referred_by?: string;
 }
 
+export type Tab = 'games' | 'history' | 'wallet' | 'earn' | 'profile';
+
 export type GameType = 'dice' | 'coinflip' | 'crash' | 'slots' | 'blackjack' | 'mines';
 
 export interface BetResult {

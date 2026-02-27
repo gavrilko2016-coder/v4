@@ -26,8 +26,8 @@ import {
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfService } from './components/TermsOfService';
 import { Analytics } from '@vercel/analytics/react';
+import { Tab } from './types';
 
-type Tab = 'games' | 'history' | 'wallet' | 'earn' | 'profile';
 type GameId = 'dice' | 'coinflip' | 'crash' | 'blackjack' | 'mines' | 'slots';
 
 const GAME_COLORS: Record<GameId, { neon: string; bg: string; border: string }> = {
@@ -357,16 +357,16 @@ function AppInner() {
 
   return (
     <div className="min-h-screen bg-black flex justify-center">
-      <div className="w-full max-w-[480px] min-h-screen flex flex-col relative shadow-2xl overflow-hidden" style={{ background: '#0D0D0D', color: 'white', fontFamily: 'var(--font-body)' }}>
+      <div className="w-full max-w-screen-2xl min-h-screen flex flex-col relative shadow-2xl overflow-hidden" style={{ background: '#0D0D0D', color: 'white', fontFamily: 'var(--font-body)' }}>
       <PremiumBackground />
       <Header />
       <CryptoPriceTicker />
 
-      <main className="flex-1 overflow-y-auto pb-28 relative z-10">
+      <main className="flex-1 overflow-y-auto pb-28 lg:pb-6 relative z-10">
 
         {/* ═══ GAMES TAB ═══ */}
         {activeTab === 'games' && (
-          <div className="p-4 space-y-4">
+          <div className="p-4 lg:p-6 xl:p-8 space-y-4">
             {activeGame ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
@@ -418,12 +418,12 @@ function AppInner() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 min-[1800px]:grid-cols-7 min-[2200px]:grid-cols-8 gap-4 lg:gap-6">
                   {GAMES.map(game => {
                     return (
                       <button key={game.id}
                         onClick={() => { playClick(); setActiveGame(game.id as GameId); }}
-                        className="game-card group relative h-48 sm:h-52 transition-all duration-400 active:scale-[0.97]"
+                        className="game-card group relative h-48 sm:h-56 lg:h-60 xl:h-64 transition-all duration-400 active:scale-[0.97]"
                         style={{ background: game.imageColor }}>
 
                         {/* Glass shine overlay */}
@@ -540,21 +540,21 @@ function AppInner() {
 
         {/* ═══ HISTORY TAB ═══ */}
         {activeTab === 'history' && (
-          <div className="p-4 space-y-4">
+          <div className="p-4 lg:p-6 xl:p-8 space-y-4">
             <LiveWinsFeed />
             <HistoryPanel />
           </div>
         )}
 
         {/* ═══ WALLET TAB ═══ */}
-        {activeTab === 'wallet' && <div className="p-4"><WalletTab /></div>}
+        {activeTab === 'wallet' && <div className="p-4 lg:p-6 xl:p-8"><WalletTab /></div>}
 
         {/* ═══ EARN TAB ═══ */}
-        {activeTab === 'earn' && <div className="p-4"><EarnPanel /></div>}
+        {activeTab === 'earn' && <div className="p-4 lg:p-6 xl:p-8"><EarnPanel /></div>}
 
         {/* ═══ PROFILE TAB ═══ */}
         {activeTab === 'profile' && (
-          <div className="p-4 space-y-6">
+          <div className="p-4 lg:p-6 xl:p-8 space-y-6">
             <ProfilePanel />
             <div>
               <p className="text-[10px] font-semibold tracking-[0.2em] mb-3" style={{ color: 'rgba(255,215,0,0.4)' }}>LIVE CRYPTO PRICES</p>
@@ -562,10 +562,11 @@ function AppInner() {
             </div>
           </div>
         )}
-      </main>
+        </main>
+      </div>
 
       {/* Bottom Navigation — Premium Glass */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50"
+      <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden"
         style={{
           background: 'rgba(13,13,13,0.88)',
           backdropFilter: 'blur(24px)',
@@ -606,7 +607,6 @@ function AppInner() {
         </div>
         <div style={{ height: 'env(safe-area-inset-bottom,0px)' }} />
       </nav>
-    </div>
     </div>
   );
 }
