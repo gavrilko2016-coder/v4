@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useWallet } from '../context/WalletContext';
 import { useLanguage } from '../context/LanguageContext';
 import { DepositModal } from './DepositModal';
@@ -7,6 +7,13 @@ import type { Currency } from '../types';
 import { IconUSDT, IconBitcoin, IconTON, IconStars, IconEthereum } from './Icons';
 import { CryptoBetLogo } from './SplashScreen';
 import { LinkAccountModal } from './LinkAccountModal';
+import { Button } from './ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 
 const CURRENCY_ICONS: Record<Currency, React.ReactNode> = {
   BTC: <IconBitcoin className="w-5 h-5" />,
@@ -36,15 +43,8 @@ function formatUSD(amount: number, currency: Currency): string {
 export function Header() {
   const { wallet, selectedCurrency, setSelectedCurrency } = useWallet();
   const { t } = useLanguage();
-  const [showDropdown, setShowDropdown] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [linkedEmail, setLinkedEmail] = useState<string | null>(null);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('linkedEmail');
-    if (saved) setLinkedEmail(saved);
-  }, []);
 
   return (
     <>
@@ -78,82 +78,113 @@ export function Header() {
           </div>
 
           {/* Deposit Button — Premium Gold */}
-          <button onClick={() => { playClick(); setShowDeposit(true); }}
-            className="btn-premium-gold flex items-center gap-1.5 px-4 py-2 text-xs font-bold tracking-wide active:scale-95 flex-shrink-0"
-            style={{ fontFamily: 'var(--font-heading)' }}>
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            {t.deposit}
-          </button>
+          <Button
+            onClick={() => {
+              playClick();
+              setShowDeposit(true);
+            }}
+            className="btn-premium-gold h-10 rounded-2xl px-4 text-xs font-bold tracking-wide active:scale-95 flex-shrink-0"
+            style={{ fontFamily: 'var(--font-heading)' }}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              {t.deposit}
+            </span>
+          </Button>
 
           {/* Wallet Balance */}
           <div className="relative flex-shrink-0">
-            <button onClick={() => { playClick(); setShowDropdown(v => !v); }}
-              className="flex items-center gap-2 rounded-2xl px-3 py-2 transition-all"
-              style={{
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
-              }}>
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                style={{ background: `${CURRENCY_COLORS[selectedCurrency]}15` }}>
-                <span style={{ color: CURRENCY_COLORS[selectedCurrency] }}>
-                  {CURRENCY_ICONS[selectedCurrency]}
-                </span>
-              </div>
-              <div className="text-left">
-                <p className="text-[9px] leading-none tracking-wider font-medium" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  {selectedCurrency}
-                </p>
-                <p className="text-sm font-bold leading-tight text-white tabular-nums">
-                  {formatUSD(wallet[selectedCurrency], selectedCurrency)}
-                </p>
-              </div>
-              <svg className={`w-3 h-3 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`}
-                fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,0.3)">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  onClick={() => {
+                    playClick();
+                  }}
+                  className="flex items-center gap-2 rounded-2xl px-3 py-2 transition-all"
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                  }}
+                >
+                  <div
+                    className="w-7 h-7 rounded-lg flex items-center justify-center"
+                    style={{ background: `${CURRENCY_COLORS[selectedCurrency]}15` }}
+                  >
+                    <span style={{ color: CURRENCY_COLORS[selectedCurrency] }}>
+                      {CURRENCY_ICONS[selectedCurrency]}
+                    </span>
+                  </div>
+                  <div className="text-left">
+                    <p
+                      className="text-[9px] leading-none tracking-wider font-medium"
+                      style={{ color: 'rgba(255,255,255,0.4)' }}
+                    >
+                      {selectedCurrency}
+                    </p>
+                    <p className="text-sm font-bold leading-tight text-white tabular-nums">
+                      {formatUSD(wallet[selectedCurrency], selectedCurrency)}
+                    </p>
+                  </div>
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="rgba(255,255,255,0.3)"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </DropdownMenuTrigger>
 
-            {showDropdown && (
-              <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl overflow-hidden z-50 animate-slide-up"
+              <DropdownMenuContent
+                align="end"
+                className="w-56 rounded-2xl overflow-hidden"
                 style={{
                   background: 'rgba(18,18,18,0.95)',
-                  backdropFilter: 'blur(24px)',
+                  backdropFilter: 'blur(16px)',
                   border: '1px solid rgba(255,255,255,0.08)',
                   boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
-                }}>
-                <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,215,0,0.3), transparent)' }} />
-                {CURRENCIES.map(c => (
-                  <button key={c}
-                    onClick={() => { playClick(); setSelectedCurrency(c); setShowDropdown(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 transition-all hover:bg-white/[0.04]"
+                }}
+              >
+                <div
+                  className="h-px w-full"
+                  style={{ background: 'linear-gradient(90deg, transparent, rgba(255,215,0,0.3), transparent)' }}
+                />
+                {CURRENCIES.map((c) => (
+                  <DropdownMenuItem
+                    key={c}
+                    onClick={() => {
+                      playClick();
+                      setSelectedCurrency(c);
+                    }}
+                    className="flex items-center gap-3 px-4 py-3"
                     style={{
                       background: c === selectedCurrency ? 'rgba(255,255,255,0.05)' : 'transparent',
                       borderBottom: '1px solid rgba(255,255,255,0.04)',
-                    }}>
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                      style={{ background: `${CURRENCY_COLORS[c]}12` }}>
+                    }}
+                  >
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${CURRENCY_COLORS[c]}12` }}>
                       <span style={{ color: CURRENCY_COLORS[c] }}>{CURRENCY_ICONS[c]}</span>
                     </div>
                     <div className="text-left flex-1">
-                      <p className="text-[10px] font-medium tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>{c}</p>
-                      <p className="text-sm font-bold text-white tabular-nums">
-                        {formatUSD(wallet[c], c)}
+                      <p className="text-[10px] font-medium tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                        {c}
                       </p>
+                      <p className="text-sm font-bold text-white tabular-nums">{formatUSD(wallet[c], c)}</p>
                     </div>
                     {c === selectedCurrency && (
-                      <div className="w-5 h-5 rounded-full flex items-center justify-center"
-                        style={{ background: '#FFD700' }}>
+                      <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: '#FFD700' }}>
                         <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#0D0D0D" strokeWidth={3}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
                     )}
-                  </button>
+                  </DropdownMenuItem>
                 ))}
-              </div>
-            )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
@@ -162,7 +193,7 @@ export function Header() {
       {showAuthModal && (
         <LinkAccountModal
           onClose={() => setShowAuthModal(false)}
-          onLinked={(email) => { setLinkedEmail(email); setShowAuthModal(false); }}
+          onLinked={() => { setShowAuthModal(false); }}
         />
       )}
     </>

@@ -64,13 +64,13 @@ export function ProfilePanel() {
   return (
     <div className="space-y-4">
       {/* Avatar + Name */}
-      <div className="bg-gray-800/60 rounded-2xl p-5 border border-white/5 flex items-center gap-4">
+      <div className="bg-gray-800/60 rounded-2xl p-5 border border-white/5 flex items-center gap-4 min-w-0">
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-3xl shadow-lg shadow-orange-500/30">
           🎰
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <p className="text-white font-bold text-lg">CryptoBetter</p>
-          <p className="text-gray-400 text-sm">ID: {userId}</p>
+          <p className="text-gray-400 text-sm truncate">ID: {userId}</p>
           <div className="flex items-center gap-1 mt-1">
             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
             <span className="text-xs text-green-400">{t.online}</span>

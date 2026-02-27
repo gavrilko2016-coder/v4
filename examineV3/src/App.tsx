@@ -28,6 +28,9 @@ import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfService } from './components/TermsOfService';
 import { Analytics } from '@vercel/analytics/react';
 import { Tab } from './types';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 type GameId = 'dice' | 'coinflip' | 'crash' | 'blackjack' | 'mines' | 'slots' | 'limbo';
 
@@ -53,15 +56,27 @@ const GAME_ICONS: Record<GameId, React.ReactNode> = {
 function PremiumBackground() {
   return (
     <>
-      {/* Ambient orbs */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full opacity-[0.03]"
-          style={{ background: 'radial-gradient(circle, #FFD700, transparent 70%)', animation: 'orb-float-1 20s ease-in-out infinite' }} />
-        <div className="absolute -bottom-48 -right-48 w-[500px] h-[500px] rounded-full opacity-[0.025]"
-          style={{ background: 'radial-gradient(circle, #00FFAA, transparent 70%)', animation: 'orb-float-2 25s ease-in-out infinite' }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-[0.015]"
-          style={{ background: 'radial-gradient(circle, #A855F7, transparent 70%)' }} />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(900px 500px at 20% 10%, rgba(139,92,246,0.14), transparent 60%), radial-gradient(900px 500px at 80% 20%, rgba(59,130,246,0.12), transparent 62%), radial-gradient(900px 500px at 50% 85%, rgba(236,72,153,0.10), transparent 60%), radial-gradient(700px 420px at 15% 85%, rgba(0,255,170,0.08), transparent 60%)',
+          }}
+        />
+
+        <div
+          className="absolute inset-0 opacity-[0.10]"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)',
+            backgroundSize: '64px 64px',
+            maskImage: 'radial-gradient(circle at 50% 40%, black 0%, transparent 70%)',
+            WebkitMaskImage: 'radial-gradient(circle at 50% 40%, black 0%, transparent 70%)',
+          }}
+        />
       </div>
+
       {/* Subtle noise texture */}
       <div className="fixed inset-0 pointer-events-none z-[1] opacity-[0.015]"
         style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")' }} />
@@ -368,32 +383,49 @@ function AppInner() {
       <CryptoPriceTicker />
       <div className="hidden lg:block relative z-40">
         <div className="max-w-[1920px] mx-auto px-6 py-3">
-          <div className="flex items-center gap-2">
-            {NAV_TABS.map(tab => {
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    playNavSwitch();
-                    if (tab.id !== 'games') { stopAllGameSounds(); setActiveGame(null); }
-                    setActiveTab(tab.id as Tab);
-                  }}
-                  className="px-4 py-2 rounded-xl font-semibold text-sm transition-all"
-                  style={
-                    isActive
-                      ? { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: tab.color }
-                      : { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)' }
-                  }
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <span style={{ color: isActive ? tab.color : 'inherit' }}>{tab.icon}</span>
-                    {tab.label.toUpperCase()}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => {
+              const tabId = value as Tab;
+              playNavSwitch();
+              if (tabId !== 'games') {
+                stopAllGameSounds();
+                setActiveGame(null);
+              }
+              setActiveTab(tabId);
+            }}
+          >
+            <TabsList
+              className="h-11 rounded-2xl bg-white/[0.03] p-1.5"
+              style={{ border: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)' }}
+            >
+              {NAV_TABS.map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <TabsTrigger
+                    key={tab.id}
+                    value={tab.id}
+                    className="h-8 rounded-xl px-4 text-xs font-bold tracking-[0.12em] data-[state=active]:shadow-none"
+                    style={{
+                      color: isActive ? tab.color : 'rgba(255,255,255,0.55)',
+                    }}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <span
+                        style={{
+                          color: isActive ? tab.color : 'rgba(255,255,255,0.35)',
+                          filter: isActive ? `drop-shadow(0 0 10px ${tab.color}55)` : 'none',
+                        }}
+                      >
+                        {tab.icon}
+                      </span>
+                      {tab.label.toUpperCase()}
+                    </span>
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Tabs>
         </div>
       </div>
 
@@ -438,7 +470,7 @@ function AppInner() {
                       <p className="text-[10px] tracking-[0.2em] font-medium" style={{ color: 'rgba(255,215,0,0.5)' }}>PREMIUM GAMES</p>
                       <h2 className="text-2xl font-extrabold text-white font-heading tracking-wide">GAME LOBBY</h2>
                     </div>
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-1.5 flex-wrap justify-end max-w-[58%]">
                       {['ALL', 'ORIGINALS', 'LIVE', 'SLOTS'].map((tab, i) => (
                         <span key={tab} className="px-2.5 py-1 rounded-lg text-[10px] font-semibold tracking-wider transition-all cursor-pointer"
                           style={{
@@ -456,50 +488,51 @@ function AppInner() {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 min-[1800px]:grid-cols-7 min-[2200px]:grid-cols-8 gap-4 lg:gap-6">
                   {GAMES.map(game => {
                     return (
-                      <button key={game.id}
-                        onClick={() => { playClick(); setActiveGame(game.id as GameId); }}
-                        className="game-card group relative h-48 sm:h-56 lg:h-60 xl:h-64 transition-all duration-400 active:scale-[0.97]"
-                        style={{ background: game.imageColor }}>
+                      <button
+                        key={game.id}
+                        onClick={() => {
+                          playClick();
+                          setActiveGame(game.id as GameId);
+                        }}
+                        className="text-left transition-transform active:scale-[0.98]"
+                      >
+                        <Card className="group relative h-48 sm:h-56 lg:h-60 xl:h-64 overflow-hidden rounded-3xl border-white/10 bg-white/[0.02] shadow-[0_18px_60px_rgba(0,0,0,0.35)]">
+                          <div className="absolute inset-0" style={{ background: game.imageColor }} />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                          <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent opacity-70" />
 
-                        {/* Glass shine overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent opacity-60" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-
-                        {/* Tag badge */}
-                        <div className="absolute top-3 right-3 z-10">
-                          <span className="px-2.5 py-1 rounded-lg text-[9px] font-bold tracking-[0.15em] uppercase"
-                            style={{
-                              background: 'rgba(0,0,0,0.4)',
-                              backdropFilter: 'blur(12px)',
-                              border: '1px solid rgba(255,255,255,0.12)',
-                              color: 'rgba(255,255,255,0.9)',
-                            }}>
-                            {game.name}
-                          </span>
-                        </div>
-
-                        {/* Icon — centered, large */}
-                        <div className="absolute inset-0 flex items-center justify-center pb-8 z-10">
-                          <div className="w-24 h-24 transform group-hover:scale-110 group-hover:-rotate-2 transition-all duration-500 ease-out drop-shadow-2xl"
-                            style={{ filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.4))' }}>
-                            {GAME_ICONS[game.id as GameId]}
+                          <div className="absolute top-3 left-3 z-10">
+                            <Badge className="rounded-xl px-2.5 py-1 text-[9px] font-bold tracking-[0.18em] bg-black/40 text-white border border-white/10">
+                              {game.tag}
+                            </Badge>
                           </div>
-                        </div>
 
-                        {/* Bottom info — glass overlay */}
-                        <div className="absolute inset-x-0 bottom-0 p-4 z-10">
-                          <p className="text-sm font-extrabold text-white uppercase tracking-wider font-heading drop-shadow-lg">{game.name}</p>
-                          <div className="flex justify-between items-center mt-1.5">
-                            <span className="text-[10px] font-semibold tracking-wider px-2 py-0.5 rounded-md"
-                              style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)' }}>
+                          <div className="absolute top-3 right-3 z-10">
+                            <Badge className="rounded-xl px-2.5 py-1 text-[9px] font-bold tracking-[0.18em] bg-white/10 text-white/90 border border-white/10">
                               RTP 99%
-                            </span>
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#00FFAA', boxShadow: '0 0 6px #00FFAA' }} />
-                              <span className="text-[9px] font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>{game.tag}</span>
+                            </Badge>
+                          </div>
+
+                          <div className="absolute inset-0 flex items-center justify-center pb-10 z-10">
+                            <div className="w-24 h-24 transition-transform duration-500 ease-out group-hover:scale-110 group-hover:-rotate-2"
+                              style={{ filter: 'drop-shadow(0 10px 22px rgba(0,0,0,0.45))' }}>
+                              {GAME_ICONS[game.id as GameId]}
                             </div>
                           </div>
-                        </div>
+
+                          <div className="absolute inset-x-0 bottom-0 p-4 z-10">
+                            <p className="text-sm font-extrabold text-white uppercase tracking-wider font-heading">
+                              {game.name}
+                            </p>
+                            <p className="text-[11px] font-semibold mt-1 line-clamp-1" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                              {game.desc}
+                            </p>
+                          </div>
+
+                          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            <div className="absolute inset-0" style={{ boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.10)' }} />
+                          </div>
+                        </Card>
                       </button>
                     );
                   })}
