@@ -6,9 +6,20 @@ export interface Wallet {
   TON: number;
   USDT: number;
   STARS: number;
+  // Bonus System
+  bonus_balance: number;
+  wagering_required: number;
+  wagering_progress: number;
+  free_spins: number;
+  // Stats
+  total_deposited_usd: number;
+  referral_code?: string;
+  referred_by?: string;
 }
 
-export type GameType = 'dice' | 'coinflip' | 'crash' | 'slots' | 'blackjack' | 'mines';
+export type Tab = 'games' | 'history' | 'wallet' | 'earn' | 'profile';
+
+export type GameType = 'dice' | 'coinflip' | 'crash' | 'slots' | 'blackjack' | 'mines' | 'limbo';
 
 export interface BetResult {
   won: boolean;
@@ -19,10 +30,13 @@ export interface BetResult {
 
 export interface Transaction {
   id: string;
-  type: 'bet' | 'win' | 'deposit';
+  type: 'bet' | 'win' | 'deposit' | 'withdrawal';
   game: string;
   amount: number;
   currency: Currency;
   timestamp: Date;
   won?: boolean;
+  status?: 'pending' | 'confirmed' | 'failed';
+  txHash?: string;
+  address?: string;
 }

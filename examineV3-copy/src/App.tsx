@@ -1,8 +1,9 @@
 import { useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import { WalletProvider } from './context/WalletContext';
-import { LanguageProvider, useLanguage, LANGUAGE_NAMES, type Language } from './context/LanguageContext';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { Header } from './components/Header';
 import { DiceGame } from './games/DiceGame';
+import { LimboGame } from './games/LimboGame';
 import { CoinFlipGame } from './games/CoinFlipGame';
 import { CrashGame } from './games/CrashGame';
 import { BlackjackGame } from './games/BlackjackGame';
@@ -12,22 +13,23 @@ import { HistoryPanel } from './components/HistoryPanel';
 import { EarnPanel } from './components/EarnPanel';
 import { CryptoPriceTicker, CryptoPriceList } from './components/CryptoPrices';
 import { useWallet, getDailyBonusAvailable, getNextDailyBonusTime } from './context/WalletContext';
-import { setSoundEnabled, isSoundEnabled, playClick, playNavSwitch, stopAllGameSounds } from './utils/sounds';
+import { playClick, playNavSwitch, stopAllGameSounds, playWin } from './utils/sounds';
 import { DepositModal } from './components/DepositModal';
 import { WithdrawModal } from './components/WithdrawModal';
 import { LiveWinsFeed } from './components/LiveWinsFeed';
 import { SplashScreen } from './components/SplashScreen';
+import { ProfilePanel } from './components/ProfilePanel';
 import {
-  IconCrash, IconMines, IconDice, IconBlackjack, IconCoinFlip, IconSlots,
+  IconCrash, IconMines, IconDice, IconBlackjack, IconCoinFlip, IconSlots, IconLimbo,
   IconBitcoin, IconTON, IconUSDT, IconStars, IconEthereum,
   IconHistory, IconWallet, IconEarn, IconProfile
 } from './components/Icons';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfService } from './components/TermsOfService';
 import { Analytics } from '@vercel/analytics/react';
+import { Tab } from './types';
 
-type Tab = 'games' | 'history' | 'wallet' | 'earn' | 'profile';
-type GameId = 'dice' | 'coinflip' | 'crash' | 'blackjack' | 'mines' | 'slots';
+type GameId = 'dice' | 'coinflip' | 'crash' | 'blackjack' | 'mines' | 'slots' | 'limbo';
 
 const GAME_COLORS: Record<GameId, { neon: string; bg: string; border: string }> = {
   dice:      { neon: '#00FFAA', bg: 'rgba(0,255,170,0.06)', border: 'rgba(0,255,170,0.2)' },
@@ -36,6 +38,7 @@ const GAME_COLORS: Record<GameId, { neon: string; bg: string; border: string }> 
   blackjack: { neon: '#A855F7', bg: 'rgba(168,85,247,0.06)', border: 'rgba(168,85,247,0.2)' },
   mines:     { neon: '#06B6D4', bg: 'rgba(6,182,212,0.06)', border: 'rgba(6,182,212,0.2)' },
   slots:     { neon: '#F59E0B', bg: 'rgba(245,158,11,0.06)', border: 'rgba(245,158,11,0.2)' },
+  limbo:     { neon: '#8B5CF6', bg: 'rgba(139,92,246,0.06)', border: 'rgba(139,92,246,0.2)' },
 };
 const GAME_ICONS: Record<GameId, React.ReactNode> = {
   dice: <IconDice className="w-full h-full" />,
@@ -44,6 +47,7 @@ const GAME_ICONS: Record<GameId, React.ReactNode> = {
   blackjack: <IconBlackjack className="w-full h-full" />,
   mines: <IconMines className="w-full h-full" />,
   slots: <IconSlots className="w-full h-full" />,
+  limbo: <IconLimbo className="w-full h-full" />,
 };
 
 function PremiumBackground() {
@@ -67,9 +71,30 @@ function PremiumBackground() {
 
 // ─── Wallet Tab ──────────────────────────────────────────────────────────────
 function WalletTab() {
-  const { wallet, transactions } = useWallet();
+  const { wallet, transactions, redeemReferral } = useWallet();
+  const { t } = useLanguage();
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
+  const [showRedeem, setShowRedeem] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  
+  const handleRedeem = () => {
+    if (!promoCode) return;
+    const success = redeemReferral(promoCode);
+    if (success) {
+      playWin();
+      setShowRedeem(false);
+      setPromoCode('');
+      // Optionally show success message
+    } else {
+      // Show error (already referred or invalid)
+      const input = document.getElementById('promo-input');
+      if (input) {
+        input.classList.add('animate-shake');
+        setTimeout(() => input.classList.remove('animate-shake'), 500);
+      }
+    }
+  };
 
   const CURRENCY_ICONS: Record<string, React.ReactNode> = {
     BTC: <IconBitcoin className="w-6 h-6" />,
@@ -80,40 +105,59 @@ function WalletTab() {
   };
   const CURRENCY_COLORS: Record<string, string> = { BTC: '#f7931a', ETH: '#627eea', TON: '#06B6D4', USDT: '#26a17b', STARS: '#FFD700' };
   const CURRENCY_NAMES: Record<string, string> = { BTC: 'Bitcoin', ETH: 'Ethereum', TON: 'TON', USDT: 'Tether', STARS: 'Telegram Stars' };
+  const USD_RATES: Record<string, number> = { BTC: 67420, ETH: 3521, TON: 5.84, USDT: 1, STARS: 0.02 };
+  const fmtUSD = (amount: number, currency: string) => {
+    const usd = (Number(amount) || 0) * (USD_RATES[currency] ?? 0);
+    if (usd >= 1000) return `$${usd.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+    return `$${usd.toFixed(2)}`;
+  };
 
-  const totalDeposited = transactions.filter(t => t.type === 'deposit').reduce((s, t) => s + t.amount, 0);
-  const totalWon = transactions.filter(t => t.won && t.type !== 'deposit').reduce((s, t) => s + t.amount, 0);
-  const totalLost = transactions.filter(t => !t.won).reduce((s, t) => s + t.amount, 0);
+  const totalDeposited = transactions?.filter(t => t.type === 'deposit').reduce((s, t) => s + t.amount, 0) || 0;
+  const totalWon = transactions?.filter(t => t.won && t.type !== 'deposit').reduce((s, t) => s + t.amount, 0) || 0;
+  const totalLost = transactions?.filter(t => !t.won).reduce((s, t) => s + t.amount, 0) || 0;
+
+  const DISPLAY_CURRENCIES = ['BTC', 'ETH', 'TON', 'USDT', 'STARS'];
 
   return (
     <div className="space-y-5">
-      {/* Deposit + Withdraw Buttons */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Deposit + Withdraw + Redeem Buttons */}
+      <div className="grid grid-cols-3 gap-2">
         <button
           onClick={() => { playClick(); setShowDeposit(true); }}
-          className="btn-premium-gold py-3.5 rounded-2xl font-bold text-sm tracking-wide transition-all active:scale-95"
+          className="btn-premium-gold py-3.5 rounded-2xl font-bold text-xs tracking-wide transition-all active:scale-95"
           style={{ fontFamily: 'var(--font-heading)' }}>
-          ⚡ DEPOSIT
+          ⚡ {t.deposit}
         </button>
         <button
           onClick={() => { playClick(); setShowWithdraw(true); }}
-          className="py-3.5 rounded-2xl font-bold text-sm tracking-wide transition-all active:scale-95"
+          className="py-3.5 rounded-2xl font-bold text-xs tracking-wide transition-all active:scale-95"
           style={{
             background: 'rgba(255,0,85,0.08)',
             border: '1px solid rgba(255,0,85,0.2)',
             color: '#FF0055',
             fontFamily: 'var(--font-heading)',
           }}>
-          💸 WITHDRAW
+          💸 {t.withdraw}
+        </button>
+        <button
+          onClick={() => { playClick(); setShowRedeem(true); }}
+          className="py-3.5 rounded-2xl font-bold text-xs tracking-wide transition-all active:scale-95"
+          style={{
+            background: 'rgba(0,255,170,0.08)',
+            border: '1px solid rgba(0,255,170,0.2)',
+            color: '#00FFAA',
+            fontFamily: 'var(--font-heading)',
+          }}>
+          🎟 REDEEM
         </button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'DEPOSITED', value: `$${totalDeposited.toFixed(0)}`, color: '#FFD700' },
-          { label: 'WON', value: `$${totalWon.toFixed(0)}`, color: '#00FFAA' },
-          { label: 'LOST', value: `$${totalLost.toFixed(0)}`, color: '#FF0055' },
+          { label: 'DEPOSITED', value: totalDeposited.toFixed(2), color: '#FFD700' },
+          { label: 'WON', value: totalWon.toFixed(2), color: '#00FFAA' },
+          { label: 'LOST', value: totalLost.toFixed(2), color: '#FF0055' },
         ].map(s => (
           <div key={s.label} className="rounded-2xl p-4 text-center"
             style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -125,11 +169,14 @@ function WalletTab() {
 
       {/* Wallet Cards */}
       <div className="space-y-3">
-        <p className="text-[10px] font-semibold tracking-[0.2em]" style={{ color: 'rgba(255,215,0,0.4)' }}>YOUR BALANCES</p>
-        {Object.entries(wallet).map(([currency, balance]) => {
+        <p className="text-[10px] font-semibold tracking-[0.2em]" style={{ color: 'rgba(255,215,0,0.4)' }}>{(t.walletBalances || 'Wallet Balances').toUpperCase?.() ?? 'WALLET BALANCES'}</p>
+        {DISPLAY_CURRENCIES.map(currency => {
+          const balance = wallet[currency as keyof typeof wallet] as number;
+          if (typeof balance !== 'number') return null;
+          
           const color = CURRENCY_COLORS[currency];
           const pct = Math.min(100, (balance / (currency === 'BTC' ? 0.1 : currency === 'ETH' ? 5 : currency === 'STARS' ? 10000 : 2000)) * 100);
-          const fmt = currency === 'BTC' ? balance.toFixed(5) : currency === 'ETH' ? balance.toFixed(4) : currency === 'STARS' ? balance.toFixed(2) : balance.toFixed(2);
+          const fmt = fmtUSD(balance, currency);
 
           return (
             <div key={currency} className="rounded-2xl p-4" style={{
@@ -166,7 +213,7 @@ function WalletTab() {
       {/* Recent deposits */}
       {transactions.filter(t => t.type === 'deposit').length > 0 && (
         <div className="space-y-2">
-          <p className="text-[10px] font-semibold tracking-[0.2em]" style={{ color: 'rgba(168,85,247,0.4)' }}>RECENT DEPOSITS</p>
+          <p className="text-[10px] font-semibold tracking-[0.2em]" style={{ color: 'rgba(168,85,247,0.4)' }}>{t.recentDeposits.toUpperCase?.() ?? t.recentDeposits}</p>
           {transactions.filter(t => t.type === 'deposit').slice(0, 5).map(tx => (
             <div key={tx.id} className="flex items-center justify-between p-3.5 rounded-xl"
               style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -174,7 +221,7 @@ function WalletTab() {
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm"
                   style={{ background: 'rgba(0,255,170,0.08)', border: '1px solid rgba(0,255,170,0.15)' }}>💳</div>
                 <div>
-                  <p className="text-xs font-bold text-white">Deposit</p>
+                  <p className="text-xs font-bold text-white">{t.deposit}</p>
                   <p className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.3)' }}>
                     {tx.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
@@ -190,209 +237,51 @@ function WalletTab() {
 
       {showDeposit && <DepositModal onClose={() => setShowDeposit(false)} />}
       {showWithdraw && <WithdrawModal onClose={() => setShowWithdraw(false)} />}
+      
+      {/* Redeem Modal */}
+      {showRedeem && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}
+          onClick={() => setShowRedeem(false)}>
+          <div className="w-full max-w-sm rounded-3xl overflow-hidden animate-slide-up"
+            style={{ background: '#13131f', border: '1px solid #1e1e3a' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="p-6 space-y-4">
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-3xl"
+                  style={{ background: 'rgba(0,255,170,0.1)', border: '1px solid rgba(0,255,170,0.2)' }}>
+                  🎟
+                </div>
+                <h3 className="text-xl font-bold text-white mb-1">Redeem Code</h3>
+                <p className="text-xs text-gray-400">Enter your promo code to claim bonus</p>
+              </div>
+              
+              <input
+                id="promo-input"
+                type="text"
+                placeholder="Enter Code (e.g. BONUS2026)"
+                value={promoCode}
+                onChange={e => setPromoCode(e.target.value.toUpperCase())}
+                className="w-full bg-[#0a0a0f] border border-[#1e1e3a] rounded-xl px-4 py-3 text-center font-mono text-white placeholder-gray-600 focus:outline-none focus:border-[#00FFAA]"
+              />
+              
+              <button
+                onClick={handleRedeem}
+                disabled={!promoCode}
+                className="w-full py-3.5 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-50"
+                style={{ background: '#00FFAA', color: '#000' }}>
+                ACTIVATE BONUS
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── Profile Tab ─────────────────────────────────────────────────────────────
-function ProfilePanel() {
-  const { wallet, transactions } = useWallet();
-  const { t, language, setLanguage } = useLanguage();
-  const [soundOn, setSoundOn] = useState(isSoundEnabled());
-  const [showLangPicker, setShowLangPicker] = useState(false);
-
-  const gameTxs = transactions.filter(tx => tx.type !== 'deposit');
-  const totalWins = transactions.filter(tx => tx.won).length;
-  const winRate = gameTxs.length > 0 ? ((gameTxs.filter(tx => tx.won).length / gameTxs.length) * 100).toFixed(1) : '0.0';
-  const CURRENCY_COLORS: Record<string, string> = { BTC: '#f7931a', ETH: '#627eea', TON: '#06B6D4', USDT: '#26a17b', STARS: '#FFD700' };
-  const CURRENCY_ICONS: Record<string, React.ReactNode> = {
-    BTC: <IconBitcoin className="w-5 h-5" />,
-    ETH: <IconEthereum className="w-5 h-5" />,
-    TON: <IconTON className="w-5 h-5" />,
-    USDT: <IconUSDT className="w-5 h-5" />,
-    STARS: <IconStars className="w-5 h-5" />
-  };
-
-  const toggleSound = () => {
-    const next = !soundOn;
-    setSoundOn(next);
-    setSoundEnabled(next);
-    if (next) playClick();
-  };
-
-  return (
-    <div className="space-y-5">
-      {/* Avatar Card */}
-      <div className="rounded-2xl p-5" style={{
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.06)',
-        backdropFilter: 'blur(16px)',
-      }}>
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl animate-float flex-shrink-0"
-            style={{
-              background: 'linear-gradient(135deg, rgba(255,215,0,0.12), rgba(0,255,170,0.08))',
-              border: '1px solid rgba(255,215,0,0.2)',
-              boxShadow: '0 8px 24px rgba(255,215,0,0.1)',
-            }}>
-            🎰
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-extrabold text-white text-lg font-heading tracking-wide">PLAYER_01</p>
-            <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.35)' }}>@telegram_user</p>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#00FFAA' }} />
-              <span className="text-[10px] font-bold tracking-wider" style={{ color: '#00FFAA' }}>ONLINE</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wider"
-                style={{ background: 'rgba(255,215,0,0.1)', border: '1px solid rgba(255,215,0,0.2)', color: '#FFD700' }}>VIP LVL 3</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: 'TOTAL BETS', value: gameTxs.length, color: '#06B6D4' },
-          { label: 'WINS', value: totalWins, color: '#00FFAA' },
-          { label: 'WIN RATE', value: `${winRate}%`, color: '#FFD700' },
-        ].map(stat => (
-          <div key={stat.label} className="rounded-2xl p-4 text-center"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <p className="text-2xl font-extrabold tabular-nums" style={{ color: stat.color }}>{stat.value}</p>
-            <p className="text-[9px] mt-1 font-semibold tracking-[0.15em]" style={{ color: 'rgba(255,255,255,0.3)' }}>{stat.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Wallet Balances */}
-      <div className="rounded-2xl p-4 space-y-3" style={{
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.06)',
-      }}>
-        <p className="text-[10px] font-semibold tracking-[0.2em]" style={{ color: 'rgba(255,215,0,0.4)' }}>WALLET BALANCES</p>
-        {Object.entries(wallet).map(([currency, balance]) => {
-          const color = CURRENCY_COLORS[currency];
-          const pct = Math.min(100, (balance / (currency === 'BTC' ? 0.1 : currency === 'ETH' ? 5 : currency === 'STARS' ? 10000 : 2000)) * 100);
-          return (
-            <div key={currency} className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: `${color}12`, border: `1px solid ${color}20` }}>
-                <span style={{ color }}>{CURRENCY_ICONS[currency]}</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>{currency}</span>
-                  <span className="text-xs font-bold text-white tabular-nums">
-                    {currency === 'BTC' ? balance.toFixed(5) : currency === 'ETH' ? balance.toFixed(4) : balance.toFixed(2)}
-                  </span>
-                </div>
-                <div className="mt-1.5 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                  <div className="h-full rounded-full transition-all duration-700"
-                    style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${color}88, ${color})` }} />
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Settings */}
-      <div className="rounded-2xl p-4 space-y-4" style={{
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.06)',
-      }}>
-        <p className="text-[10px] font-semibold tracking-[0.2em]" style={{ color: 'rgba(168,85,247,0.5)' }}>SETTINGS</p>
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="text-lg">{soundOn ? '🔊' : '🔇'}</span>
-            <span className="text-sm font-medium text-white">{t.sound}</span>
-          </div>
-          <button onClick={toggleSound}
-            className="relative w-12 h-6 rounded-full transition-all duration-300"
-            style={{
-              background: soundOn ? 'linear-gradient(135deg, #FFD700, #F0C000)' : 'rgba(255,255,255,0.1)',
-              boxShadow: soundOn ? '0 0 12px rgba(255,215,0,0.3)' : 'none',
-            }}>
-            <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-lg transition-transform duration-300"
-              style={{ transform: soundOn ? 'translateX(26px)' : 'translateX(2px)' }} />
-          </button>
-        </div>
-
-        <div className="h-px" style={{ background: 'rgba(255,255,255,0.05)' }} />
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="text-lg">🌐</span>
-            <span className="text-sm font-medium text-white">{t.language}</span>
-          </div>
-          <button onClick={() => { playClick(); setShowLangPicker(v => !v); }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium transition-all"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'white' }}>
-            {LANGUAGE_NAMES[language]}
-            <svg className={`w-3 h-3 transition-transform duration-200 ${showLangPicker ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,0.4)">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-        </div>
-
-        {showLangPicker && (
-          <div className="rounded-xl overflow-hidden animate-slide-up" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-            {(Object.keys(LANGUAGE_NAMES) as Language[]).map(lang => (
-              <button key={lang}
-                onClick={() => { playNavSwitch(); setLanguage(lang); setShowLangPicker(false); }}
-                className="w-full flex items-center justify-between px-4 py-3 text-sm transition-all"
-                style={{
-                  background: lang === language ? 'rgba(255,215,0,0.06)' : 'rgba(255,255,255,0.02)',
-                  color: lang === language ? '#FFD700' : 'rgba(255,255,255,0.7)',
-                  fontWeight: lang === language ? 600 : 400,
-                  borderBottom: '1px solid rgba(255,255,255,0.04)',
-                }}>
-                <span>{LANGUAGE_NAMES[lang]}</span>
-                {lang === language && (
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: '#FFD700' }}>
-                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#0D0D0D" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Achievements */}
-      <div className="rounded-2xl p-4" style={{
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.06)',
-      }}>
-        <p className="text-[10px] font-semibold tracking-[0.2em] mb-3" style={{ color: 'rgba(255,215,0,0.4)' }}>ACHIEVEMENTS</p>
-        <div className="flex flex-wrap gap-2">
-          {[
-            { label: 'FIRST BET', color: '#FFD700', icon: '🎖' },
-            { label: 'HODLER', color: '#06B6D4', icon: '💎' },
-            { label: 'DEGEN', color: '#A855F7', icon: '🚀' },
-            { label: 'CARD SHARK', color: '#00FFAA', icon: '🃏' },
-            { label: '???', color: 'rgba(255,255,255,0.15)', icon: '🔒' },
-            { label: '???', color: 'rgba(255,255,255,0.15)', icon: '🔒' },
-          ].map((b, i) => (
-            <span key={i} className="px-3 py-1.5 rounded-xl text-[11px] font-semibold tracking-wide"
-              style={{ background: `${b.color}10`, border: `1px solid ${b.color}30`, color: b.color }}>
-              {b.icon} {b.label}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-xl p-3 text-[11px] text-center font-medium"
-        style={{ color: 'rgba(255,255,255,0.2)' }}>
-        🛡 PLAY RESPONSIBLY · 18+ · CryptoBet
-      </div>
-    </div>
-  );
-}
+// (moved to src/components/ProfilePanel.tsx)
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 function AppInner() {
@@ -428,14 +317,15 @@ function AppInner() {
     { id: 'blackjack', name: 'BLACKJACK', tag: 'CARD',     desc: 'Beat the dealer', imageColor: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
     { id: 'mines',     name: 'MINES',     tag: 'SKILL',    desc: 'Avoid the mines', imageColor: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)' },
     { id: 'coinflip',  name: 'COIN FLIP', tag: '50/50',    desc: 'Heads or tails', imageColor: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)' },
+    { id: 'limbo',     name: 'LIMBO',     tag: 'ROCKET',   desc: 'Fly to moon',    imageColor: 'linear-gradient(135deg, #8b5cf6 0%, #d8b4fe 100%)' },
     { id: 'slots',     name: 'SLOTS',     tag: 'CASINO',   desc: 'Spin to win', imageColor: 'linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%)' },
   ];
 
   const NAV_TABS: { id: Tab; label: string; icon: React.ReactNode; color: string }[] = [
     { id: 'games',   label: t.games,   icon: <IconDice className="w-6 h-6" />, color: '#FFD700' },
     { id: 'history', label: t.history, icon: <IconHistory className="w-6 h-6" />, color: '#A855F7' },
-    { id: 'wallet',  label: 'Wallet',  icon: <IconWallet className="w-6 h-6" />, color: '#00FFAA' },
-    { id: 'earn',    label: 'Earn',    icon: <IconEarn className="w-6 h-6" />, color: '#06B6D4' },
+    { id: 'wallet',  label: t.wallet,  icon: <IconWallet className="w-6 h-6" />, color: '#00FFAA' },
+    { id: 'earn',    label: t.earn,    icon: <IconEarn className="w-6 h-6" />, color: '#06B6D4' },
     { id: 'profile', label: t.profile, icon: <IconProfile className="w-6 h-6" />, color: '#FF0055' },
   ];
 
@@ -463,6 +353,7 @@ function AppInner() {
       case 'blackjack': return <BlackjackGame />;
       case 'mines':     return <DiamondMinesGame />;
       case 'slots':     return <SlotsGame />;
+      case 'limbo':     return <LimboGame />;
       default:          return null;
     }
   };
@@ -470,16 +361,47 @@ function AppInner() {
   const currentGame = GAMES.find(g => g.id === activeGame);
 
   return (
-    <div className="min-h-screen flex flex-col relative" style={{ background: '#0D0D0D', color: 'white', fontFamily: 'var(--font-body)' }}>
+    <div className="min-h-screen bg-black flex justify-center">
+      <div className="w-full max-w-screen-2xl min-h-screen flex flex-col relative shadow-2xl overflow-hidden" style={{ background: '#0D0D0D', color: 'white', fontFamily: 'var(--font-body)' }}>
       <PremiumBackground />
       <Header />
       <CryptoPriceTicker />
+      <div className="hidden lg:block relative z-40">
+        <div className="max-w-[1920px] mx-auto px-6 py-3">
+          <div className="flex items-center gap-2">
+            {NAV_TABS.map(tab => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    playNavSwitch();
+                    if (tab.id !== 'games') { stopAllGameSounds(); setActiveGame(null); }
+                    setActiveTab(tab.id as Tab);
+                  }}
+                  className="px-4 py-2 rounded-xl font-semibold text-sm transition-all"
+                  style={
+                    isActive
+                      ? { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: tab.color }
+                      : { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)' }
+                  }
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <span style={{ color: isActive ? tab.color : 'inherit' }}>{tab.icon}</span>
+                    {tab.label.toUpperCase()}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
 
-      <main className="flex-1 overflow-y-auto pb-28 relative z-10">
+      <main className="flex-1 overflow-y-auto pb-28 lg:pb-6 relative z-10">
 
         {/* ═══ GAMES TAB ═══ */}
         {activeTab === 'games' && (
-          <div className="p-4 space-y-4">
+          <div className="p-4 lg:p-6 xl:p-8 space-y-4">
             {activeGame ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
@@ -531,12 +453,12 @@ function AppInner() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 min-[1800px]:grid-cols-7 min-[2200px]:grid-cols-8 gap-4 lg:gap-6">
                   {GAMES.map(game => {
                     return (
                       <button key={game.id}
                         onClick={() => { playClick(); setActiveGame(game.id as GameId); }}
-                        className="game-card group relative h-48 sm:h-52 transition-all duration-400 active:scale-[0.97]"
+                        className="game-card group relative h-48 sm:h-56 lg:h-60 xl:h-64 transition-all duration-400 active:scale-[0.97]"
                         style={{ background: game.imageColor }}>
 
                         {/* Glass shine overlay */}
@@ -653,21 +575,21 @@ function AppInner() {
 
         {/* ═══ HISTORY TAB ═══ */}
         {activeTab === 'history' && (
-          <div className="p-4 space-y-4">
+          <div className="p-4 lg:p-6 xl:p-8 space-y-4">
             <LiveWinsFeed />
             <HistoryPanel />
           </div>
         )}
 
         {/* ═══ WALLET TAB ═══ */}
-        {activeTab === 'wallet' && <div className="p-4"><WalletTab /></div>}
+        {activeTab === 'wallet' && <div className="p-4 lg:p-6 xl:p-8"><WalletTab /></div>}
 
         {/* ═══ EARN TAB ═══ */}
-        {activeTab === 'earn' && <div className="p-4"><EarnPanel /></div>}
+        {activeTab === 'earn' && <div className="p-4 lg:p-6 xl:p-8"><EarnPanel /></div>}
 
         {/* ═══ PROFILE TAB ═══ */}
         {activeTab === 'profile' && (
-          <div className="p-4 space-y-6">
+          <div className="p-4 lg:p-6 xl:p-8 space-y-6">
             <ProfilePanel />
             <div>
               <p className="text-[10px] font-semibold tracking-[0.2em] mb-3" style={{ color: 'rgba(255,215,0,0.4)' }}>LIVE CRYPTO PRICES</p>
@@ -675,10 +597,11 @@ function AppInner() {
             </div>
           </div>
         )}
-      </main>
+        </main>
+      </div>
 
       {/* Bottom Navigation — Premium Glass */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50"
+      <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden"
         style={{
           background: 'rgba(13,13,13,0.88)',
           backdropFilter: 'blur(24px)',

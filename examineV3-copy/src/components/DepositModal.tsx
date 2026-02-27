@@ -4,9 +4,9 @@ import { useLanguage } from '../context/LanguageContext';
 import { useMetaMask } from '../hooks/useMetaMask';
 import { useTonConnect } from '../hooks/useTonConnect';
 import { playClick, playDeposit } from '../utils/sounds';
-import { IconTON, IconBitcoin, IconEthereum } from './Icons';
+import { IconTON, IconBitcoin, IconEthereum, IconUSDT } from './Icons';
 
-type DepositTab = 'metamask' | 'tonkeeper' | 'stars' | 'onchain';
+type DepositTab = 'metamask' | 'tonkeeper' | 'stars' | 'onchain' | 'fiat';
 
 interface TelegramWebApp {
   openInvoice?: (url: string, callback: (status: string) => void) => void;
@@ -242,6 +242,7 @@ export function DepositModal({ onClose }: DepositModalProps) {
   const [refreshing, setRefreshing] = useState(false);
 
   const tgWebApp = window.Telegram?.WebApp;
+  const onramperKey = (import.meta as any).env?.VITE_ONRAMPER_API_KEY as string | undefined;
 
   const showSuccess = (msg: string) => {
     setSuccessMsg(msg);
@@ -321,6 +322,7 @@ export function DepositModal({ onClose }: DepositModalProps) {
     { id: 'metamask' as DepositTab, label: 'MetaMask', icon: '🦊', color: '#f6851b' },
     { id: 'tonkeeper' as DepositTab, label: 'TON',     icon: '💎', color: '#00f5ff' },
     { id: 'onchain' as DepositTab,  label: 'On-Chain', icon: '◈', color: '#00ff88' },
+    { id: 'fiat' as DepositTab,     label: 'Card',     icon: '💳', color: '#00ff88' },
   ];
 
   return (
@@ -710,6 +712,42 @@ export function DepositModal({ onClose }: DepositModalProps) {
                 network="Ethereum (ETH)"
                 minDeposit="0.001 ETH"
               />
+              <OnChainAddressPanel
+                icon={<IconUSDT size={24} />}
+                title="USDT (ERC-20)"
+                subtitle="Send USDT on Ethereum to this address"
+                address="0x2f2a2543b76a4166549f7aab2e75b0f9c7e3ebf2"
+                color="#26a17b"
+                network="Ethereum (USDT ERC-20)"
+                minDeposit="10 USDT"
+              />
+              <OnChainAddressPanel
+                icon={<IconUSDT size={24} />}
+                title="USDT (TRC-20)"
+                subtitle="Send USDT on Tron to this address"
+                address="TNp9XyWJ7vZbqtp4u3t8qX2i7bJcC2Yx5K"
+                color="#26a17b"
+                network="Tron (USDT TRC-20)"
+                minDeposit="10 USDT"
+              />
+            </div>
+          )}
+
+          {/* ═══════ FIAT CARD (ONRAMPER) ═══════ */}
+          {activeTab === 'fiat' && (
+            <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
+              <div className="w-20 h-20 rounded-full bg-[#00ff8811] border border-[#00ff8833] flex items-center justify-center animate-pulse">
+                <span className="text-4xl">💳</span>
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white font-mono">COMING SOON</h3>
+                <p className="text-sm font-mono mt-1" style={{ color: '#00ff88' }}>
+                  Card payments are currently in development
+                </p>
+              </div>
+              <p className="text-xs font-mono max-w-xs mx-auto" style={{ color: '#ffffff44' }}>
+                We are integrating secure fiat payment gateways to allow direct card deposits. Please use crypto deposits for now.
+              </p>
             </div>
           )}
         </div>

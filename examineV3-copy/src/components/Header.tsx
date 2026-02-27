@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWallet } from '../context/WalletContext';
 import { useLanguage } from '../context/LanguageContext';
 import { DepositModal } from './DepositModal';
@@ -6,6 +6,7 @@ import { playClick } from '../utils/sounds';
 import type { Currency } from '../types';
 import { IconUSDT, IconBitcoin, IconTON, IconStars, IconEthereum } from './Icons';
 import { CryptoBetLogo } from './SplashScreen';
+import { LinkAccountModal } from './LinkAccountModal';
 
 const CURRENCY_ICONS: Record<Currency, React.ReactNode> = {
   BTC: <IconBitcoin className="w-5 h-5" />,
@@ -19,10 +20,17 @@ const CURRENCY_COLORS: Record<Currency, string> = {
 };
 const CURRENCIES: Currency[] = ['STARS', 'TON', 'USDT', 'ETH', 'BTC'];
 
-function formatBalance(amount: number, currency: Currency): string {
-  if (currency === 'BTC') return amount.toFixed(5);
-  if (currency === 'ETH') return amount.toFixed(4);
-  return amount.toFixed(2);
+const USD_RATES: Record<Currency, number> = {
+  BTC: 67420,
+  ETH: 3521,
+  TON: 5.84,
+  USDT: 1,
+  STARS: 0.02,
+};
+function formatUSD(amount: number, currency: Currency): string {
+  const usd = (Number(amount) || 0) * (USD_RATES[currency] ?? 0);
+  if (usd >= 1000) return `$${usd.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+  return `$${usd.toFixed(2)}`;
 }
 
 export function Header() {
@@ -30,6 +38,13 @@ export function Header() {
   const { t } = useLanguage();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [linkedEmail, setLinkedEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('linkedEmail');
+    if (saved) setLinkedEmail(saved);
+  }, []);
 
   return (
     <>
@@ -43,7 +58,7 @@ export function Header() {
         {/* Top gold accent line */}
         <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,215,0,0.4), rgba(0,255,170,0.3), transparent)' }} />
 
-        <div className="flex items-center justify-between px-4 py-3 gap-3">
+        <div className="max-w-[1920px] mx-auto flex items-center justify-between px-4 py-3 gap-3">
           {/* Logo */}
           <div className="flex items-center gap-2.5 flex-shrink-0">
             <div className="w-10 h-10 flex-shrink-0">
@@ -91,7 +106,7 @@ export function Header() {
                   {selectedCurrency}
                 </p>
                 <p className="text-sm font-bold leading-tight text-white tabular-nums">
-                  {formatBalance(wallet[selectedCurrency], selectedCurrency)}
+                  {formatUSD(wallet[selectedCurrency], selectedCurrency)}
                 </p>
               </div>
               <svg className={`w-3 h-3 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`}
@@ -123,7 +138,9 @@ export function Header() {
                     </div>
                     <div className="text-left flex-1">
                       <p className="text-[10px] font-medium tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>{c}</p>
-                      <p className="text-sm font-bold text-white tabular-nums">{formatBalance(wallet[c], c)}</p>
+                      <p className="text-sm font-bold text-white tabular-nums">
+                        {formatUSD(wallet[c], c)}
+                      </p>
                     </div>
                     {c === selectedCurrency && (
                       <div className="w-5 h-5 rounded-full flex items-center justify-center"
@@ -142,6 +159,12 @@ export function Header() {
       </header>
 
       {showDeposit && <DepositModal onClose={() => setShowDeposit(false)} />}
+      {showAuthModal && (
+        <LinkAccountModal
+          onClose={() => setShowAuthModal(false)}
+          onLinked={(email) => { setLinkedEmail(email); setShowAuthModal(false); }}
+        />
+      )}
     </>
   );
 }

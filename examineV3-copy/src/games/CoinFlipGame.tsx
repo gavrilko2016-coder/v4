@@ -7,6 +7,8 @@ import type { Currency } from '../types';
 
 type Side = 'heads' | 'tails';
 
+const WIN_RATE = 0.7;
+
 export function CoinFlipGame() {
   const { placeBet, addWinnings, recordLoss } = useWallet();
   const { t } = useLanguage();
@@ -30,7 +32,8 @@ export function CoinFlipGame() {
       setAnimPhase(tick % 4);
       if (tick >= 16) {
         clearInterval(interval);
-        const outcome: Side = Math.random() < 0.5 ? 'heads' : 'tails';
+        const forceWin = Math.random() < WIN_RATE;
+        const outcome: Side = forceWin ? chosen : (chosen === 'heads' ? 'tails' : 'heads');
         setCoinFace(outcome);
         setAnimPhase(0);
         const won = outcome === chosen;

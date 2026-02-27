@@ -1,0 +1,86 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  telegram_id   BigInt    @unique
+  username      String?
+  first_name    String?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  
+  // Relations
+  balance       Balance?
+  transactions  Transaction[]
+  bonuses       Bonus[]
+  game_history  GameHistory[]
+}
+
+model Balance {
+  id                Int      @id @default(autoincrement())
+  user_id           Int      @unique
+  user              User     @relation(fields: [user_id], references: [id])
+  
+  // Real Balances
+  ton_balance       Decimal  @default(0) @db.Decimal(18, 9)
+  usdt_balance      Decimal  @default(0) @db.Decimal(18, 9)
+  eth_balance       Decimal  @default(0) @db.Decimal(18, 9)
+  btc_balance       Decimal  @default(0) @db.Decimal(18, 9)
+  stars_balance     Int      @default(0)
+
+  // Bonus System
+  bonus_balance     Decimal  @default(0) @db.Decimal(18, 9) // Bonus funds (locked)
+  wagering_required Decimal  @default(0) @db.Decimal(18, 9) // Total wager needed to unlock
+  wagering_progress Decimal  @default(0) @db.Decimal(18, 9) // Current wager progress
+  
+  free_spins_count  Int      @default(0)                    // Active free spins
+  free_spins_game   String?                                 // Game ID for free spins (e.g. "slots")
+  free_spins_value  Decimal  @default(0) @db.Decimal(18, 9) // Value per spin
+}
+
+model Bonus {
+  id          Int       @id @default(autoincrement())
+  user_id     Int
+  user        User      @relation(fields: [user_id], references: [id])
+  type        String    // "deposit_match", "free_spins", "referral"
+  amount      Decimal   @db.Decimal(18, 9)
+  currency    String
+  wager_req   Decimal   @db.Decimal(18, 9) // Multiplier (e.g. 35) or total amount
+  status      String    // "active", "completed", "expired", "forfeited"
+  created_at  DateTime  @default(now())
+  expires_at  DateTime?
+}
+
+model Transaction {
+  id          Int      @id @default(autoincrement())
+  user_id     Int
+  user        User     @relation(fields: [user_id], references: [id])
+  type        String   // "deposit", "withdraw", "bet", "win", "bonus_credit"
+  amount      Decimal  @db.Decimal(18, 9)
+  currency    String
+  status      String   // "pending", "completed", "failed"
+  tx_hash     String?
+  created_at  DateTime @default(now())
+}
+
+model GameHistory {
+  id          Int      @id @default(autoincrement())
+  user_id     Int
+  user        User     @relation(fields: [user_id], references: [id])
+  game_id     String
+  bet_amount  Decimal  @db.Decimal(18, 9)
+  win_amount  Decimal  @db.Decimal(18, 9)
+  currency    String
+  multiplier  Decimal  @db.Decimal(10, 2)
+  is_bonus_bet Boolean @default(false)
+  created_at  DateTime @default(now())
+}

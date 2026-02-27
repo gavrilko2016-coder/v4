@@ -5,6 +5,8 @@ import { useLanguage } from '../context/LanguageContext';
 import { playCardDeal, playCardFlip, playWin, playBigWin, playLoss, stopAllGameSounds } from '../utils/sounds';
 import type { Currency } from '../types';
 
+const WIN_RATE = 0.7;
+
 type Suit = '♠' | '♥' | '♦' | '♣';
 type Rank = 'A' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K';
 interface Card { rank: Rank; suit: Suit; hidden?: boolean }
@@ -117,6 +119,32 @@ export function BlackjackGame() {
     setBetAmount(amount);
     setBetCurrency(currency);
     setResult(null);
+
+    const forceWin = Math.random() < WIN_RATE;
+    if (forceWin) {
+      const p: Card[] = [{ rank: 'A', suit: '♠' }, { rank: 'K', suit: '♦' }];
+      const d: Card[] = [{ rank: '9', suit: '♣' }, { rank: '7', suit: '♠' }];
+      setDeck([]);
+      setPlayerHand(p);
+      setDealerHand(d);
+      const payout = +(amount * 2.5).toFixed(8);
+      addWinnings(payout, currency, 'Blackjack');
+      setResult('blackjack');
+      setPhase('result');
+      playBigWin();
+      return;
+    } else {
+      const p: Card[] = [{ rank: '9', suit: '♦' }, { rank: '8', suit: '♥' }];
+      const d: Card[] = [{ rank: 'A', suit: '♣' }, { rank: 'K', suit: '♠' }];
+      setDeck([]);
+      setPlayerHand(p);
+      setDealerHand(d);
+      recordLoss(amount, currency, 'Blackjack');
+      setResult('dealer');
+      setPhase('result');
+      playLoss();
+      return;
+    }
 
     const newDeck = createDeck();
     const p: Card[] = [newDeck.pop()!, newDeck.pop()!];
