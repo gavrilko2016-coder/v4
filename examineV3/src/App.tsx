@@ -361,6 +361,36 @@ function AppInner() {
       <PremiumBackground />
       <Header />
       <CryptoPriceTicker />
+      <div className="hidden lg:block relative z-40">
+        <div className="max-w-[1920px] mx-auto px-6 py-3">
+          <div className="flex items-center gap-2">
+            {NAV_TABS.map(tab => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    playNavSwitch();
+                    if (tab.id !== 'games') { stopAllGameSounds(); setActiveGame(null); }
+                    setActiveTab(tab.id as Tab);
+                  }}
+                  className="px-4 py-2 rounded-xl font-semibold text-sm transition-all"
+                  style={
+                    isActive
+                      ? { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: tab.color }
+                      : { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)' }
+                  }
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <span style={{ color: isActive ? tab.color : 'inherit' }}>{tab.icon}</span>
+                    {tab.label.toUpperCase()}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
 
       <main className="flex-1 overflow-y-auto pb-28 lg:pb-6 relative z-10">
 
