@@ -5,21 +5,47 @@ import { useLanguage } from '../context/LanguageContext';
 import { playSlotSpin, playSlotStop, playWin, playBigWin, playLoss, stopAllGameSounds } from '../utils/sounds';
 import type { Currency } from '../types';
 
+const WIN_RATE = 0.7;
+
 const SYMBOLS = ['🍋', '🍊', '🍇', '⭐', '💎', '7️⃣', '🎰', '🔔'];
-const WEIGHTS =  [30,   25,   20,   12,   7,    4,    1,    1];
 const PAYOUTS: Record<string, number> = {
   '🍋🍋🍋': 2, '🍊🍊🍊': 3, '🍇🍇🍇': 4, '⭐⭐⭐': 8,
   '💎💎💎': 15, '7️⃣7️⃣7️⃣': 25, '🎰🎰🎰': 50, '🔔🔔🔔': 100,
 };
 
-function weightedRandom(): string {
-  const total = WEIGHTS.reduce((a, b) => a + b, 0);
-  let rand = Math.random() * total;
-  for (let i = 0; i < SYMBOLS.length; i++) {
-    rand -= WEIGHTS[i];
-    if (rand <= 0) return SYMBOLS[i];
+const JACKPOT_REELS: string[][] = [
+  ['🍋', '🍋', '🍋'],
+  ['🍊', '🍊', '🍊'],
+  ['🍇', '🍇', '🍇'],
+  ['⭐', '⭐', '⭐'],
+  ['💎', '💎', '💎'],
+  ['7️⃣', '7️⃣', '7️⃣'],
+  ['🎰', '🎰', '🎰'],
+  ['🔔', '🔔', '🔔'],
+];
+
+function generateFinalReels(forceWin: boolean): string[] {
+  if (forceWin) {
+    const makeJackpot = Math.random() < 0.25;
+    if (makeJackpot) {
+      return JACKPOT_REELS[Math.floor(Math.random() * JACKPOT_REELS.length)];
+    }
+
+    const sym = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+    const otherPool = SYMBOLS.filter(s => s !== sym);
+    const other = otherPool[Math.floor(Math.random() * otherPool.length)];
+    const oddIndex = Math.floor(Math.random() * 3);
+    const reels = [sym, sym, sym];
+    reels[oddIndex] = other;
+    return reels;
   }
-  return SYMBOLS[0];
+
+  const pool = [...SYMBOLS];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, 3);
 }
 
 function getResult(reels: string[]): { multiplier: number; label: string; big: boolean } {
@@ -52,7 +78,8 @@ export function SlotsGame() {
     setBlur([true, true, true]);
     playSlotSpin();
 
-    const finalReels = [weightedRandom(), weightedRandom(), weightedRandom()];
+    const forceWin = Math.random() < WIN_RATE;
+    const finalReels = generateFinalReels(forceWin);
     let tick = 0;
 
     if (intervalRef.current) clearInterval(intervalRef.current);

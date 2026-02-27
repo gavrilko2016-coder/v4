@@ -5,6 +5,8 @@ import { BetControls } from '../components/BetControls';
 import { playClick, playWin, playBigWin, playLoss, stopAllGameSounds } from '../utils/sounds';
 import type { Currency } from '../types';
 
+const WIN_RATE = 0.7;
+
 type CellState = 'hidden' | 'diamond' | 'mine' | 'revealed';
 
 interface Cell {
@@ -208,6 +210,35 @@ export function DiamondMinesGame() {
     playClick();
 
     if (cell.hasMine) {
+      // Bias: turn mine into safe click in ~80% of cases
+      if (Math.random() < WIN_RATE) {
+        const candidates = cells
+          .map((c, i) => ({ c, i }))
+          .filter(x => x.i !== idx && x.c.state === 'hidden' && !x.c.hasMine);
+
+        if (candidates.length > 0) {
+          const moveTo = candidates[Math.floor(Math.random() * candidates.length)].i;
+          const newRevealed = revealed + 1;
+          const newCells = cells.map((c, i) => {
+            if (i === idx) return { ...c, hasMine: false, state: 'diamond' as CellState };
+            if (i === moveTo) return { ...c, hasMine: true };
+            return c;
+          });
+          setCells(newCells);
+          setRevealed(newRevealed);
+          const newMult = getMultiplier(newRevealed, mineCount);
+          setMultiplier(newMult);
+
+          const safeLeft = GRID_SIZE - mineCount - newRevealed;
+          if (safeLeft === 0) {
+            handleCashout(newRevealed, newCells, newMult, betAmount, betCurrency);
+          } else {
+            playWin();
+          }
+          return;
+        }
+      }
+
       // Hit mine — reveal all
       const newCells = cells.map((c, i) =>
         i === idx

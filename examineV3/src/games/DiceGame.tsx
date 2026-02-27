@@ -5,6 +5,8 @@ import { useLanguage } from '../context/LanguageContext';
 import { playDiceRoll, playWin, playLoss, playClick } from '../utils/sounds';
 import type { Currency } from '../types';
 
+const WIN_RATE = 0.7;
+
 export function DiceGame() {
   const { placeBet, addWinnings, recordLoss } = useWallet();
   const { t } = useLanguage();
@@ -56,9 +58,25 @@ export function DiceGame() {
       ticks++;
       if (ticks >= 14) {
         clearInterval(interval);
-        const d1 = Math.floor(Math.random() * 6) + 1;
-        const d2 = Math.floor(Math.random() * 6) + 1;
-        const roll = d1 + d2;
+        const forceWin = Math.random() < WIN_RATE;
+
+        const winSums: number[] = [];
+        const loseSums: number[] = [];
+        for (let sum = 2; sum <= 12; sum++) {
+          const isWin = mode === 'over' ? sum > target : sum <= target;
+          (isWin ? winSums : loseSums).push(sum);
+        }
+        const chosenPool = forceWin ? winSums : loseSums;
+        const desiredSum = chosenPool[Math.floor(Math.random() * chosenPool.length)];
+
+        const pairs: Array<[number, number]> = [];
+        for (let a = 1; a <= 6; a++) {
+          for (let b = 1; b <= 6; b++) {
+            if (a + b === desiredSum) pairs.push([a, b]);
+          }
+        }
+        const [d1, d2] = pairs[Math.floor(Math.random() * pairs.length)];
+        const roll = desiredSum;
         setDiceValues([d1, d2]);
         setAnimating(false);
         

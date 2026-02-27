@@ -11,9 +11,10 @@ import {
 import './crash.css';
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
-const RTP = 0.97; // 97% Return to Player (3% House Edge)
 const MAX_HISTORY = 10;
 const AUTO_RESTART_DELAY = 3000; // 3 seconds
+
+const WIN_RATE = 0.7;
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 type GameState = 'IDLE' | 'STARTING' | 'FLYING' | 'CRASHED';
@@ -142,10 +143,17 @@ export function CrashGame() {
   // ─── CORE LOGIC ────────────────────────────────────────────────────────────
 
   const generateCrashPoint = (): number => {
-    const r = Math.random();
-    const e = RTP / (1 - r);
-    const result = Math.floor(e * 100) / 100;
-    return Math.max(1.00, result);
+    const forceWin = Math.random() < WIN_RATE;
+
+    if (forceWin) {
+      // Favorable round: higher crash point (more time to cash out)
+      const hi = 2.0 + Math.random() * 6.0; // 2.00x .. 8.00x
+      return Math.floor(hi * 100) / 100;
+    }
+
+    // Unfavorable round: lower crash point
+    const lo = 1.0 + Math.random() * 0.6; // 1.00x .. 1.60x
+    return Math.floor(lo * 100) / 100;
   };
 
   const handleBet = () => {

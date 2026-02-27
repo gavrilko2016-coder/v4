@@ -73,7 +73,7 @@ export function BetControls({ onBet, disabled = false, label }: BetControlsProps
         </span>
       </div>
 
-      <div className="flex items-center justify-between text-[10px] font-bold tracking-wider text-white/20 -mt-3">
+      <div className="flex items-center justify-between text-[10px] font-bold tracking-wider text-white/20 mt-1">
         <span>BET IN USDT</span>
         <span className="font-mono text-white/30">≈ ${balanceUsdt.toFixed(2)}</span>
       </div>

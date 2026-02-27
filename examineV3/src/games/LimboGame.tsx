@@ -5,10 +5,22 @@ import { playWin, playLoss, playClick, stopAllGameSounds } from '../utils/sounds
 import { BetControls } from '../components/BetControls';
 import type { Currency } from '../types';
 
+const WIN_RATE = 0.7;
+
 // Provably Fair Logic
-function generateResult(): number {
-  const raw = 0.99 / (Math.random());
-  return Math.max(1.00, Math.min(1000000, raw));
+function generateResult(target: number, forceWin: boolean): number {
+  const clampedTarget = Math.max(1.01, Math.min(1000000, target));
+
+  if (forceWin) {
+    const max = 1000000;
+    const span = Math.max(0.01, Math.min(max - clampedTarget, clampedTarget * 5));
+    const res = clampedTarget + Math.random() * span;
+    return Math.max(1.00, Math.min(1000000, res));
+  }
+
+  const upper = Math.max(1.00, clampedTarget - 0.01);
+  const res = 1.00 + Math.random() * Math.max(0, upper - 1.00);
+  return Math.max(1.00, Math.min(1000000, res));
 }
 
 export function LimboGame() {
@@ -79,7 +91,8 @@ export function LimboGame() {
     playClick();
     nonceRef.current++;
 
-    const finalResult = generateResult();
+    const forceWin = Math.random() < WIN_RATE;
+    const finalResult = generateResult(target, forceWin);
     const isWin = finalResult >= target;
     const payout = isWin ? +(amount * target).toFixed(8) : 0;
 
