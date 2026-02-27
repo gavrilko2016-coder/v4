@@ -27,11 +27,10 @@ const CURRENCY_ICONS: Record<Currency, React.ReactNode> = {
 };
 const CURRENCY_COLORS: Record<Currency, string> = { BTC: '#f7931a', ETH: '#627eea', TON: '#00f5ff', USDT: '#26a17b', STARS: '#ffd700' };
 
-// Minimum withdrawal ≈ 1000 Stars equivalent
-// 1000 Stars ≈ 50 TON ≈ 20 USDT ≈ 0.005 ETH ≈ 0.00015 BTC
-const MIN_WITHDRAW: Record<Currency, number> = { BTC: 0.00015, ETH: 0.005, TON: 50, USDT: 20, STARS: 1000 };
-const STARS_EQUIV: Record<Currency, string> = { BTC: '0.00015 BTC', ETH: '0.005 ETH', TON: '50 TON', USDT: '20 USDT', STARS: '1000 ⭐' };
-const MIN_STARS = 1000; // minimum 1000 Stars worth to withdraw
+// Minimum withdrawal ≈ $10 USDT
+const MIN_WITHDRAW: Record<Currency, number> = { BTC: 0.00015, ETH: 0.005, TON: 2, USDT: 10, STARS: 500 };
+const STARS_EQUIV: Record<Currency, string> = { BTC: '0.00015 BTC', ETH: '0.005 ETH', TON: '2 TON', USDT: '10 USDT', STARS: '500 ⭐' };
+const MIN_STARS = 500; // minimum 500 Stars worth to withdraw
 const FEES: Record<Currency, { flat: number; pct: number }> = {
   BTC:   { flat: 0.00002, pct: 0 },
   ETH:   { flat: 0.002,   pct: 0 },
@@ -145,9 +144,11 @@ export function WithdrawModal({ onClose }: { onClose: () => void }) {
   const [amount, setAmount] = useState('');
   const [status, setStatus] = useState<WithdrawStatus>('idle');
   const [showSuccess, setShowSuccess] = useState(false);
-  const [withdrawHistory, setWithdrawHistory] = useState<WithdrawRecord[]>([]);
   const [addrError, setAddrError] = useState('');
   const [amtError, setAmtError] = useState('');
+
+  // Filter history to show only withdrawals
+  const withdrawHistory = transactions.filter(t => t.type === 'withdrawal');
 
   const balance = wallet[currency];
   const numAmt = parseFloat(amount) || 0;
@@ -174,10 +175,16 @@ export function WithdrawModal({ onClose }: { onClose: () => void }) {
   };
 
   const handleWithdraw = async () => {
-    // Only allow withdrawal if there is at least one REAL deposit (not daily bonus or tasks)
-    const hasDeposit = transactions.some((t: any) => t.type === 'deposit' && t.game === 'Deposit');
-    if (!hasDeposit) {
-      setAmtError('Withdrawal locked: You must make a deposit first!');
+    // 1. Minimum Deposit Check ($20)
+    if ((wallet.total_deposited_usd || 0) < 20) {
+      setAmtError('Withdrawal locked: Minimum total deposit of $20 required.');
+      return;
+    }
+
+    // 2. Wager Requirement Check
+    if (wallet.wagering_required > 0 && wallet.wagering_progress < wallet.wagering_required) {
+      const remaining = wallet.wagering_required - wallet.wagering_progress;
+      setAmtError(`Withdrawal locked: Wager remaining $${remaining.toFixed(2)}`);
       return;
     }
 
@@ -190,37 +197,16 @@ export function WithdrawModal({ onClose }: { onClose: () => void }) {
     setStatus('processing');
     playClick();
 
-    // Deduct from wallet immediately (optimistic)
-    const ok = withdraw(numAmt, activeCurrency);
+    // Simulate blockchain confirmation delay (2–4s)
+    await new Promise(r => setTimeout(r, 2500 + Math.random() * 1500));
+
+    // Submit withdrawal request (pending status)
+    const ok = withdraw(numAmt, activeCurrency, address);
     if (!ok) {
       setAmtError('Insufficient balance');
       setStatus('idle');
       return;
     }
-
-    // Simulate blockchain confirmation delay (2–4s)
-    await new Promise(r => setTimeout(r, 2500 + Math.random() * 1500));
-
-    const txHash = '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-
-    const record: WithdrawRecord = {
-      id: crypto.randomUUID(),
-      amount: numAmt,
-      currency: activeCurrency,
-      address,
-      status: 'pending',
-      timestamp: new Date(),
-      txHash,
-    };
-
-    setWithdrawHistory(prev => [record, ...prev]);
-
-    // Simulate on-chain confirmation (would be real in prod)
-    setTimeout(() => {
-      setWithdrawHistory(prev =>
-        prev.map(r => r.id === record.id ? { ...r, status: 'confirmed' } : r)
-      );
-    }, 15000);
 
     setStatus('success');
     playDeposit();
@@ -594,31 +580,28 @@ export function WithdrawModal({ onClose }: { onClose: () => void }) {
                           {w.status.toUpperCase()}
                         </span>
                       </div>
-                      <p className="text-[10px] font-mono truncate" style={{ color: '#ffffff33' }}>
-                        → {w.address}
-                      </p>
-                      {w.txHash && (
-                        <p className="text-[10px] font-mono truncate" style={{ color: '#00f5ff44' }}>
-                          TX: {w.txHash.slice(0, 16)}...
-                        </p>
-                      )}
+                      <div className="flex items-center justify-between text-[10px] font-mono" style={{ color: '#ffffff44' }}>
+                        <span>To: {w.address.slice(0, 8)}...{w.address.slice(-6)}</span>
+                        <span>TX: {w.txHash?.slice(0, 6)}...</span>
+                      </div>
                     </motion.div>
                   );
                 })}
               </div>
             )}
           </div>
+          <div className="h-6" />
         </motion.div>
       </div>
 
+      {/* Success Overlay */}
       <AnimatePresence>
         {showSuccess && (
           <SuccessOverlay
-            amount={youReceive(numAmt || 0, activeCurrency)}
+            amount={numAmt}
             currency={activeCurrency}
             address={address}
-            onClose={() => { setShowSuccess(false); onClose(); }}
-          />
+            onClose={() => { setShowSuccess(false); onClose(); }} />
         )}
       </AnimatePresence>
     </>

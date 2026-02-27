@@ -198,8 +198,11 @@ function ReferralSection({ addBalance }: { addBalance: (amount: number, currency
   ]);
 
   // Simulated Telegram User ID for referral link
-  const tgUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id ?? 123456789;
-  const refLink = `https://t.me/Crypto_BetCasino?start=ref_${tgUserId}`;
+  const tgUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+  const userId = localStorage.getItem('cryptobet_userid') || 'User_000000';
+  const uniqueRefId = tgUserId || userId;
+  
+  const refLink = `https://cryptobetcasino.vercel.app/?uid=${uniqueRefId}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(refLink).catch(() => {

@@ -11,6 +11,10 @@ export interface Wallet {
   wagering_required: number;
   wagering_progress: number;
   free_spins: number;
+  // Stats
+  total_deposited_usd: number;
+  referral_code?: string;
+  referred_by?: string;
 }
 
 export type GameType = 'dice' | 'coinflip' | 'crash' | 'slots' | 'blackjack' | 'mines';
@@ -24,10 +28,13 @@ export interface BetResult {
 
 export interface Transaction {
   id: string;
-  type: 'bet' | 'win' | 'deposit';
+  type: 'bet' | 'win' | 'deposit' | 'withdrawal';
   game: string;
   amount: number;
   currency: Currency;
   timestamp: Date;
   won?: boolean;
+  status?: 'pending' | 'confirmed' | 'failed';
+  txHash?: string;
+  address?: string;
 }

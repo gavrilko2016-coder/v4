@@ -156,29 +156,6 @@ export function Header() {
             )}
           </div>
         </div>
-        {/* Email link row */}
-        <div className="px-4 pb-3 -mt-1">
-          {linkedEmail ? (
-            <div className="flex items-center gap-2 text-xs">
-              <span className="opacity-70">✉️</span>
-              <a
-                href={`mailto:${linkedEmail}`}
-                className="font-semibold"
-                style={{ color: '#00f5ff' }}
-              >
-                {linkedEmail}
-              </a>
-            </div>
-          ) : (
-            <button
-              onClick={() => { playClick(); setShowAuthModal(true); }}
-              className="text-xs font-semibold hover:underline"
-              style={{ color: '#00f5ff' }}
-            >
-              {t.linkEmail}
-            </button>
-          )}
-        </div>
       </header>
 
       {showDeposit && <DepositModal onClose={() => setShowDeposit(false)} />}

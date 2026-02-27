@@ -12,7 +12,7 @@ import { HistoryPanel } from './components/HistoryPanel';
 import { EarnPanel } from './components/EarnPanel';
 import { CryptoPriceTicker, CryptoPriceList } from './components/CryptoPrices';
 import { useWallet, getDailyBonusAvailable, getNextDailyBonusTime } from './context/WalletContext';
-import { setSoundEnabled, isSoundEnabled, playClick, playNavSwitch, stopAllGameSounds } from './utils/sounds';
+import { setSoundEnabled, isSoundEnabled, playClick, playNavSwitch, stopAllGameSounds, playWin } from './utils/sounds';
 import { DepositModal } from './components/DepositModal';
 import { WithdrawModal } from './components/WithdrawModal';
 import { LiveWinsFeed } from './components/LiveWinsFeed';
@@ -68,9 +68,30 @@ function PremiumBackground() {
 
 // ─── Wallet Tab ──────────────────────────────────────────────────────────────
 function WalletTab() {
-  const { wallet, transactions } = useWallet();
+  const { wallet, transactions, redeemReferral } = useWallet();
+  const { t } = useLanguage();
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
+  const [showRedeem, setShowRedeem] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  
+  const handleRedeem = () => {
+    if (!promoCode) return;
+    const success = redeemReferral(promoCode);
+    if (success) {
+      playWin();
+      setShowRedeem(false);
+      setPromoCode('');
+      // Optionally show success message
+    } else {
+      // Show error (already referred or invalid)
+      const input = document.getElementById('promo-input');
+      if (input) {
+        input.classList.add('animate-shake');
+        setTimeout(() => input.classList.remove('animate-shake'), 500);
+      }
+    }
+  };
 
   const CURRENCY_ICONS: Record<string, React.ReactNode> = {
     BTC: <IconBitcoin className="w-6 h-6" />,
@@ -88,23 +109,25 @@ function WalletTab() {
     return `$${usd.toFixed(2)}`;
   };
 
-  const totalDeposited = transactions.filter(t => t.type === 'deposit').reduce((s, t) => s + t.amount, 0);
-  const totalWon = transactions.filter(t => t.won && t.type !== 'deposit').reduce((s, t) => s + t.amount, 0);
-  const totalLost = transactions.filter(t => !t.won).reduce((s, t) => s + t.amount, 0);
+  const totalDeposited = transactions?.filter(t => t.type === 'deposit').reduce((s, t) => s + t.amount, 0) || 0;
+  const totalWon = transactions?.filter(t => t.won && t.type !== 'deposit').reduce((s, t) => s + t.amount, 0) || 0;
+  const totalLost = transactions?.filter(t => !t.won).reduce((s, t) => s + t.amount, 0) || 0;
+
+  const DISPLAY_CURRENCIES = ['BTC', 'ETH', 'TON', 'USDT', 'STARS'];
 
   return (
     <div className="space-y-5">
-      {/* Deposit + Withdraw Buttons */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Deposit + Withdraw + Redeem Buttons */}
+      <div className="grid grid-cols-3 gap-2">
         <button
           onClick={() => { playClick(); setShowDeposit(true); }}
-          className="btn-premium-gold py-3.5 rounded-2xl font-bold text-sm tracking-wide transition-all active:scale-95"
+          className="btn-premium-gold py-3.5 rounded-2xl font-bold text-xs tracking-wide transition-all active:scale-95"
           style={{ fontFamily: 'var(--font-heading)' }}>
           ⚡ {t.deposit}
         </button>
         <button
           onClick={() => { playClick(); setShowWithdraw(true); }}
-          className="py-3.5 rounded-2xl font-bold text-sm tracking-wide transition-all active:scale-95"
+          className="py-3.5 rounded-2xl font-bold text-xs tracking-wide transition-all active:scale-95"
           style={{
             background: 'rgba(255,0,85,0.08)',
             border: '1px solid rgba(255,0,85,0.2)',
@@ -112,6 +135,17 @@ function WalletTab() {
             fontFamily: 'var(--font-heading)',
           }}>
           💸 {t.withdraw}
+        </button>
+        <button
+          onClick={() => { playClick(); setShowRedeem(true); }}
+          className="py-3.5 rounded-2xl font-bold text-xs tracking-wide transition-all active:scale-95"
+          style={{
+            background: 'rgba(0,255,170,0.08)',
+            border: '1px solid rgba(0,255,170,0.2)',
+            color: '#00FFAA',
+            fontFamily: 'var(--font-heading)',
+          }}>
+          🎟 REDEEM
         </button>
       </div>
 
@@ -132,8 +166,11 @@ function WalletTab() {
 
       {/* Wallet Cards */}
       <div className="space-y-3">
-        <p className="text-[10px] font-semibold tracking-[0.2em]" style={{ color: 'rgba(255,215,0,0.4)' }}>{t.walletBalances.toUpperCase?.() ?? t.walletBalances}</p>
-        {Object.entries(wallet).map(([currency, balance]) => {
+        <p className="text-[10px] font-semibold tracking-[0.2em]" style={{ color: 'rgba(255,215,0,0.4)' }}>{(t.walletBalances || 'Wallet Balances').toUpperCase?.() ?? 'WALLET BALANCES'}</p>
+        {DISPLAY_CURRENCIES.map(currency => {
+          const balance = wallet[currency as keyof typeof wallet] as number;
+          if (typeof balance !== 'number') return null;
+          
           const color = CURRENCY_COLORS[currency];
           const pct = Math.min(100, (balance / (currency === 'BTC' ? 0.1 : currency === 'ETH' ? 5 : currency === 'STARS' ? 10000 : 2000)) * 100);
           const fmt = fmtUSD(balance, currency);
@@ -197,6 +234,45 @@ function WalletTab() {
 
       {showDeposit && <DepositModal onClose={() => setShowDeposit(false)} />}
       {showWithdraw && <WithdrawModal onClose={() => setShowWithdraw(false)} />}
+      
+      {/* Redeem Modal */}
+      {showRedeem && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}
+          onClick={() => setShowRedeem(false)}>
+          <div className="w-full max-w-sm rounded-3xl overflow-hidden animate-slide-up"
+            style={{ background: '#13131f', border: '1px solid #1e1e3a' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="p-6 space-y-4">
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-3xl"
+                  style={{ background: 'rgba(0,255,170,0.1)', border: '1px solid rgba(0,255,170,0.2)' }}>
+                  🎟
+                </div>
+                <h3 className="text-xl font-bold text-white mb-1">Redeem Code</h3>
+                <p className="text-xs text-gray-400">Enter your promo code to claim bonus</p>
+              </div>
+              
+              <input
+                id="promo-input"
+                type="text"
+                placeholder="Enter Code (e.g. BONUS2026)"
+                value={promoCode}
+                onChange={e => setPromoCode(e.target.value.toUpperCase())}
+                className="w-full bg-[#0a0a0f] border border-[#1e1e3a] rounded-xl px-4 py-3 text-center font-mono text-white placeholder-gray-600 focus:outline-none focus:border-[#00FFAA]"
+              />
+              
+              <button
+                onClick={handleRedeem}
+                disabled={!promoCode}
+                className="w-full py-3.5 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-50"
+                style={{ background: '#00FFAA', color: '#000' }}>
+                ACTIVATE BONUS
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -280,7 +356,8 @@ function AppInner() {
   const currentGame = GAMES.find(g => g.id === activeGame);
 
   return (
-    <div className="min-h-screen flex flex-col relative" style={{ background: '#0D0D0D', color: 'white', fontFamily: 'var(--font-body)' }}>
+    <div className="min-h-screen bg-black flex justify-center">
+      <div className="w-full max-w-[480px] min-h-screen flex flex-col relative shadow-2xl overflow-hidden" style={{ background: '#0D0D0D', color: 'white', fontFamily: 'var(--font-body)' }}>
       <PremiumBackground />
       <Header />
       <CryptoPriceTicker />
@@ -529,6 +606,7 @@ function AppInner() {
         </div>
         <div style={{ height: 'env(safe-area-inset-bottom,0px)' }} />
       </nav>
+    </div>
     </div>
   );
 }

@@ -11,8 +11,10 @@ interface WalletContextType {
   addWinnings: (amount: number, currency: Currency, game: string) => void;
   recordLoss: (amount: number, currency: Currency, game: string) => void;
   addDeposit: (amount: number, currency: Currency, source?: string) => void;
-  withdraw: (amount: number, currency: Currency) => boolean;
+  withdraw: (amount: number, currency: Currency, address: string) => boolean;
+  updateTransactionStatus: (id: string, status: 'confirmed' | 'failed') => void;
   claimDailyBonus: () => boolean;
+  redeemReferral: (code: string) => boolean;
   /** Bot credits balance (from Telegram Stars purchases) */
   botCredits: number;
   /** Whether bot credits are loading */
@@ -27,6 +29,7 @@ interface WalletContextType {
   openBuyCredits: () => void;
   /** Refresh bot credits balance */
   refreshBotCredits: () => Promise<number>;
+  userId: string;
 }
 
 const WalletContext = createContext<WalletContextType | null>(null);
@@ -37,6 +40,12 @@ const INITIAL_WALLET: Wallet = {
   TON: 0,
   USDT: 0,
   STARS: 0,
+  bonus_balance: 0,
+  wagering_required: 0,
+  wagering_progress: 0,
+  free_spins: 0,
+  total_deposited_usd: 0,
+  userId: '',
 };
 
 const WALLET_KEY = 'cryptobet_wallet_v1';
@@ -60,34 +69,47 @@ export function markDailyBonusClaimed() {
 }
 
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const [wallet, setWallet] = useState<Wallet>(INITIAL_WALLET);
-  const [selectedCurrency, setSelectedCurrency] = useState<Currency>('TON');
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-
-  // Bot credits integration — syncs STARS balance from Telegram bot
-  const bot = useBotCredits();
-
-  // Load persisted state on mount
-  useEffect(() => {
+  // Initialize state from localStorage directly to avoid flicker/reset
+  const [wallet, setWallet] = useState<Wallet>(() => {
     try {
       const w = localStorage.getItem(WALLET_KEY);
       if (w) {
         const parsed = JSON.parse(w);
-        const next: Wallet = {
+        return {
+          ...INITIAL_WALLET,
+          ...parsed,
+          // Ensure these are preserved or initialized
           BTC: Number(parsed.BTC) || 0,
           ETH: Number(parsed.ETH) || 0,
           TON: Number(parsed.TON) || 0,
           USDT: Number(parsed.USDT) || 0,
           STARS: Number(parsed.STARS) || 0,
+          bonus_balance: Number(parsed.bonus_balance) || 0,
+          wagering_required: Number(parsed.wagering_required) || 0,
+          wagering_progress: Number(parsed.wagering_progress) || 0,
+          total_deposited_usd: Number(parsed.total_deposited_usd) || 0,
+          // Important: preserve referred_by
+          referred_by: parsed.referred_by,
         };
-        setWallet(next);
       }
     } catch {}
+    return INITIAL_WALLET;
+  });
+
+  const [selectedCurrency, setSelectedCurrency] = useState<Currency>(() => {
+    try {
+      const c = localStorage.getItem(CURR_KEY);
+      if (c) return c as Currency;
+    } catch {}
+    return 'USDT';
+  });
+
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
     try {
       const t = localStorage.getItem(TX_KEY);
       if (t) {
         const arr = JSON.parse(t) as any[];
-        const next: Transaction[] = arr.map(item => ({
+        return arr.map(item => ({
           id: String(item.id),
           type: item.type,
           game: item.game,
@@ -96,13 +118,43 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           timestamp: new Date(item.timestamp),
           won: !!item.won,
         })).slice(0, 200);
-        setTransactions(next);
       }
     } catch {}
-    try {
-      const c = localStorage.getItem(CURR_KEY);
-      if (c) setSelectedCurrency(c as Currency);
-    } catch {}
+    return [];
+  });
+
+  const [userId, setUserId] = useState('');
+
+  // Bot credits integration — syncs STARS balance from Telegram bot
+  const bot = useBotCredits();
+
+  // Generate/Load User ID
+  useEffect(() => {
+    // 1. Try to get ID from localStorage
+    let stored = localStorage.getItem('cryptobet_userid');
+    
+    // 2. If not found, try to get from URL params (e.g. ?uid=...)
+    if (!stored) {
+      const params = new URLSearchParams(window.location.search);
+      const urlUid = params.get('uid');
+      if (urlUid) {
+        stored = urlUid;
+        localStorage.setItem('cryptobet_userid', stored);
+      }
+    }
+
+    // 3. If still not found, generate a new persistent ID
+    if (!stored) {
+      // Use a more robust ID generation
+      const array = new Uint32Array(4);
+      window.crypto.getRandomValues(array);
+      const randomPart = Array.from(array).map(n => n.toString(16)).join('');
+      stored = `User_${randomPart}`;
+      localStorage.setItem('cryptobet_userid', stored);
+    }
+    
+    setUserId(stored);
+    setWallet(prev => ({ ...prev, userId: stored! }));
   }, []);
 
   // Persist state when it changes
@@ -135,7 +187,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const placeBet = useCallback((amount: number, currency: Currency): boolean => {
     if (wallet[currency] < amount) return false;
-    setWallet(prev => ({ ...prev, [currency]: +(prev[currency] - amount).toFixed(8) }));
+    
+    const USD_RATES: Record<string, number> = { BTC: 67420, ETH: 3521, TON: 5.84, USDT: 1, STARS: 0.02 };
+    const usdValue = amount * (USD_RATES[currency] || 0);
+
+    setWallet(prev => ({ 
+      ...prev, 
+      [currency]: +(prev[currency] - amount).toFixed(8),
+      wagering_progress: +(prev.wagering_progress + usdValue).toFixed(2)
+    }));
     return true;
   }, [wallet]);
 
@@ -165,7 +225,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addDeposit = useCallback((amount: number, currency: Currency, source: string = 'Deposit') => {
-    setWallet(prev => ({ ...prev, [currency]: +(prev[currency] + amount).toFixed(8) }));
+    const USD_RATES: Record<string, number> = { BTC: 67420, ETH: 3521, TON: 5.84, USDT: 1, STARS: 0.02 };
+    const usdValue = amount * (USD_RATES[currency] || 0);
+
+    setWallet(prev => ({ 
+      ...prev, 
+      [currency]: +(prev[currency] + amount).toFixed(8),
+      total_deposited_usd: +(prev.total_deposited_usd + usdValue).toFixed(2)
+    }));
     setTransactions(prev => [{
       id: crypto.randomUUID(),
       type: 'deposit',
@@ -182,7 +249,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setWallet(prev => ({ 
       ...prev, 
       STARS: +(prev.STARS + 1).toFixed(2),
-      // Example: Daily bonus also gives 5 free spins if user is lucky (random 20%)
       free_spins: Math.random() < 0.2 ? prev.free_spins + 5 : prev.free_spins
     }));
     setTransactions(prev => [{
@@ -198,25 +264,73 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return true;
   }, []);
 
-  const withdraw = useCallback((amount: number, currency: Currency): boolean => {
+  const redeemReferral = useCallback((code: string): boolean => {
+    // Check if user already used a referral code
+    if (wallet.referred_by) return false;
+    
+    // Check if the provided code is the valid bonus code
+    const VALID_CODE = 'BONUS2026';
+    if (code !== VALID_CODE) return false;
+    
+    // Bonus: $50 USDT, Wager x15
+    const BONUS_AMOUNT = 50;
+    const WAGER_REQ = BONUS_AMOUNT * 15;
+    
+    setWallet(prev => ({
+      ...prev,
+      USDT: +(prev.USDT + BONUS_AMOUNT).toFixed(2),
+      wagering_required: +(prev.wagering_required + WAGER_REQ).toFixed(2),
+      referred_by: code,
+      bonus_balance: +(prev.bonus_balance + BONUS_AMOUNT).toFixed(2)
+    }));
+    
+    setTransactions(prev => [{
+      id: crypto.randomUUID(),
+      type: 'deposit',
+      game: 'Referral Bonus',
+      amount: BONUS_AMOUNT,
+      currency: 'USDT',
+      timestamp: new Date(),
+      won: true,
+    }, ...prev.slice(0, 49)]);
+    
+    return true;
+  }, [wallet.referred_by]);
+
+  const withdraw = useCallback((amount: number, currency: Currency, address: string): boolean => {
     let ok = false;
-    setWallet(prev => {
-      if (prev[currency] < amount) return prev;
+    
+    // Check balance
+    if (wallet[currency] >= amount) {
       ok = true;
-      return { ...prev, [currency]: +(prev[currency] - amount).toFixed(8) };
-    });
-    if (ok) {
+      setWallet(prev => ({ ...prev, [currency]: +(prev[currency] - amount).toFixed(8) }));
+      
       setTransactions(prev => [{
         id: crypto.randomUUID(),
-        type: 'withdraw' as 'bet',   // reuse bet type for tx log
+        type: 'withdrawal',
         game: 'Withdrawal',
         amount,
         currency,
         timestamp: new Date(),
         won: false,
-      }, ...prev.slice(0, 49)]);
+        status: 'pending',
+        address
+      }, ...prev]);
     }
     return ok;
+  }, [wallet]);
+
+  const updateTransactionStatus = useCallback((id: string, status: 'confirmed' | 'failed') => {
+    setTransactions(prev => prev.map(t => {
+      if (t.id === id) {
+        // If failed, refund the amount
+        if (status === 'failed' && t.type === 'withdrawal' && t.status === 'pending') {
+          setWallet(w => ({ ...w, [t.currency]: +(w[t.currency] + t.amount).toFixed(8) }));
+        }
+        return { ...t, status };
+      }
+      return t;
+    }));
   }, []);
 
   return (
@@ -230,14 +344,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       recordLoss,
       addDeposit,
       withdraw,
+      updateTransactionStatus,
       claimDailyBonus,
+      redeemReferral,
       botCredits: bot.credits,
       botLoading: bot.loading,
-      telegramId: bot.telegramId,
-      telegramName: bot.telegramName,
+      telegramId: bot.user?.id || null,
+      telegramName: bot.user?.username || null,
       isInTelegram: bot.isInTelegram,
       openBuyCredits: bot.openBuyCredits,
-      refreshBotCredits: bot.refreshBalance,
+      refreshBotCredits: bot.refreshCredits,
+      userId,
     }}>
       {children}
     </WalletContext.Provider>
