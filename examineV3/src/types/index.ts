@@ -6,6 +6,7 @@ export interface Wallet {
   TON: number;
   USDT: number;
   STARS: number;
+  userId?: string;
   // Bonus System
   bonus_balance: number;
   wagering_required: number;

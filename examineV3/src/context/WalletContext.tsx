@@ -8,6 +8,7 @@ interface WalletContextType {
   setSelectedCurrency: (c: Currency) => void;
   transactions: Transaction[];
   placeBet: (amount: number, currency: Currency) => boolean;
+  refundBet: (amount: number, currency: Currency, game: string) => void;
   addWinnings: (amount: number, currency: Currency, game: string) => void;
   recordLoss: (amount: number, currency: Currency, game: string) => void;
   addDeposit: (amount: number, currency: Currency, source?: string) => void;
@@ -208,6 +209,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return ok;
   }, []);
 
+  const refundBet = useCallback((amount: number, currency: Currency, game: string) => {
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    setWallet(prev => ({ ...prev, [currency]: +(prev[currency] + amount).toFixed(8) }));
+    setTransactions(prev => [{
+      id: crypto.randomUUID(),
+      type: 'deposit',
+      game,
+      amount,
+      currency,
+      timestamp: new Date(),
+      won: true,
+    }, ...prev.slice(0, 49)]);
+  }, []);
+
   const addWinnings = useCallback((amount: number, currency: Currency, game: string) => {
     setWallet(prev => ({ ...prev, [currency]: +(prev[currency] + amount).toFixed(8) }));
     setTransactions(prev => [{
@@ -353,6 +368,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setSelectedCurrency,
       transactions,
       placeBet,
+      refundBet,
       addWinnings,
       recordLoss,
       addDeposit,
@@ -362,11 +378,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       redeemReferral,
       botCredits: bot.credits,
       botLoading: bot.loading,
-      telegramId: bot.user?.id || null,
-      telegramName: bot.user?.username || null,
+      telegramId: bot.telegramId,
+      telegramName: bot.telegramName,
       isInTelegram: bot.isInTelegram,
       openBuyCredits: bot.openBuyCredits,
-      refreshBotCredits: bot.refreshCredits,
+      refreshBotCredits: bot.refreshBalance,
       userId,
     }}>
       {children}

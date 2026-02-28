@@ -3,46 +3,14 @@ import { useWallet } from '../context/WalletContext';
 import { BetControls } from '../components/BetControls';
 import { useLanguage } from '../context/LanguageContext';
 import { playSlotSpin, playSlotStop, playWin, playBigWin, playLoss, stopAllGameSounds } from '../utils/sounds';
-import { pfCreateRound, pfRandom, pfReveal } from '../api/provablyFair';
-import { RTP } from '../config/rtp';
+import { playSlots as apiPlaySlots } from '../api/casino';
 import type { Currency } from '../types';
-
-const RTP_TARGET = RTP.SLOTS;
 
 const SYMBOLS = ['🍋', '🍊', '🍇', '⭐', '💎', '7️⃣', '🎰', '🔔'];
 const PAYOUTS: Record<string, number> = {
   '🍋🍋🍋': 2, '🍊🍊🍊': 3, '🍇🍇🍇': 4, '⭐⭐⭐': 8,
   '💎💎💎': 15, '7️⃣7️⃣7️⃣': 25, '🎰🎰🎰': 50, '🔔🔔🔔': 100,
 };
-
-function lcg(seed: number) {
-  let s = seed >>> 0;
-  return () => {
-    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
-    return s / 2 ** 32;
-  };
-}
-
-function generateFinalReelsFromRandom(r: number): string[] {
-  const seed = Math.floor(Math.max(0, Math.min(0.999999999, r)) * 2 ** 32);
-  const next = lcg(seed);
-  const pick = () => SYMBOLS[Math.floor(next() * SYMBOLS.length)];
-  return [pick(), pick(), pick()];
-}
-
-function expectedRtpForBasePaytable(): number {
-  const n = SYMBOLS.length;
-  // Independent reels, uniform symbols
-  const p3 = 1 / (n * n); // P(all 3 equal) = n*(1/n^3)=1/n^2
-  const p2 = (3 * (n - 1)) / (n * n); // exactly two equal
-
-  const avgJackpot = Object.values(PAYOUTS).reduce((a, b) => a + b, 0) / n;
-  const twoKindMult = 1.5;
-  return p3 * avgJackpot + p2 * twoKindMult;
-}
-
-const BASE_RTP = expectedRtpForBasePaytable();
-const PAYOUT_SCALE = BASE_RTP > 0 ? (RTP_TARGET / BASE_RTP) : 1;
 
 function getResult(reels: string[]): { multiplier: number; label: string; big: boolean } {
   const key = reels.join('');
@@ -54,7 +22,7 @@ function getResult(reels: string[]): { multiplier: number; label: string; big: b
 }
 
 export function SlotsGame() {
-  const { placeBet, addWinnings, recordLoss, userId } = useWallet();
+  const { placeBet, refundBet, addWinnings, recordLoss, userId } = useWallet();
   const { t } = useLanguage();
   const [spinning, setSpinning] = useState(false);
   const [reels, setReels] = useState(['🍋', '🍊', '🍇']);
@@ -97,27 +65,26 @@ export function SlotsGame() {
         if (intervalRef.current) clearInterval(intervalRef.current);
         (async () => {
           try {
-            const { roundId } = await pfCreateRound();
-            const { random } = await pfRandom(roundId, clientSeed, nonceRef.current);
-            void (await pfReveal(roundId));
+            const { reels: reelsOut, won, payout, label } = await apiPlaySlots({
+              clientSeed,
+              nonce: nonceRef.current,
+              betAmount: amount,
+              currency,
+            });
 
-            finalReels = generateFinalReelsFromRandom(random);
+            finalReels = reelsOut;
             setReels(finalReels);
             setBlur([false, false, false]);
 
             const base = getResult(finalReels);
-            const scaledMultiplier = base.multiplier > 0 ? +(base.multiplier * PAYOUT_SCALE).toFixed(4) : 0;
-            const won = scaledMultiplier > 0;
-            const payout = won ? +(amount * scaledMultiplier).toFixed(8) : 0;
 
             if (won) { addWinnings(payout, currency, 'Slots'); base.big ? playBigWin() : playWin(); }
             else { recordLoss(amount, currency, 'Slots'); playLoss(); }
 
-            setResultMsg({ won, label: base.label, payout, currency });
+            setResultMsg({ won, label: label || base.label, payout, currency });
           } catch {
-            recordLoss(amount, currency, 'Slots');
-            playLoss();
-            setResultMsg({ won: false, label: '💸 No match', payout: 0, currency });
+            refundBet(amount, currency, 'Slots');
+            setResultMsg(null);
           } finally {
             setSpinning(false);
           }

@@ -3,13 +3,13 @@ import { useWallet } from '../context/WalletContext';
 import { BetControls } from '../components/BetControls';
 import { useLanguage } from '../context/LanguageContext';
 import { playDiceRoll, playWin, playLoss, playClick } from '../utils/sounds';
-import { pfCreateRound, pfRandom, pfReveal } from '../api/provablyFair';
+import { playDice as apiPlayDice } from '../api/casino';
 import type { Currency } from '../types';
 
 const HOUSE_EDGE = 0.01;
 
 export function DiceGame() {
-  const { placeBet, addWinnings, recordLoss, userId } = useWallet();
+  const { placeBet, refundBet, addWinnings, recordLoss, userId } = useWallet();
   const { t } = useLanguage();
   const [rolling, setRolling] = useState(false);
   const [diceValues, setDiceValues] = useState<[number, number]>([3, 4]);
@@ -66,21 +66,17 @@ export function DiceGame() {
         clearInterval(interval);
         (async () => {
           try {
-            const { roundId } = await pfCreateRound();
-            const { random } = await pfRandom(roundId, clientSeed, nonceRef.current);
-            void (await pfReveal(roundId));
-
-            // Uniform over 36 equally-likely outcomes
-            const idx = Math.min(35, Math.floor(random * 36));
-            const d1 = Math.floor(idx / 6) + 1;
-            const d2 = (idx % 6) + 1;
-            const roll = d1 + d2;
+            const { roll, d1, d2, won, payout } = await apiPlayDice({
+              clientSeed,
+              nonce: nonceRef.current,
+              betAmount: amount,
+              currency,
+              mode,
+              target,
+            });
 
             setDiceValues([d1, d2]);
             setAnimating(false);
-
-            const won = mode === 'over' ? roll > target : roll <= target;
-            const payout = won ? +(amount * multiplier).toFixed(8) : 0;
 
             if (won) { addWinnings(payout, currency, 'Dice'); playWin(); }
             else { recordLoss(amount, currency, 'Dice'); playLoss(); }
@@ -88,9 +84,8 @@ export function DiceGame() {
             setResult({ won, payout, currency, roll });
           } catch {
             setAnimating(false);
-            recordLoss(amount, currency, 'Dice');
-            playLoss();
-            setResult({ won: false, payout: 0, currency, roll: diceValues[0] + diceValues[1] });
+            refundBet(amount, currency, 'Dice');
+            setResult(null);
           } finally {
             setRolling(false);
           }

@@ -3,15 +3,13 @@ import { useWallet } from '../context/WalletContext';
 import { BetControls } from '../components/BetControls';
 import { useLanguage } from '../context/LanguageContext';
 import { playCoinFlip, playWin, playLoss, playClick } from '../utils/sounds';
-import { pfCreateRound, pfRandom, pfReveal } from '../api/provablyFair';
+import { playCoinFlip as apiPlayCoinFlip } from '../api/casino';
 import type { Currency } from '../types';
 
 type Side = 'heads' | 'tails';
 
-const RTP_99_MULTIPLIER = 1.98;
-
 export function CoinFlipGame() {
-  const { placeBet, addWinnings, recordLoss, userId } = useWallet();
+  const { placeBet, refundBet, addWinnings, recordLoss, userId } = useWallet();
   const { t } = useLanguage();
   const [flipping, setFlipping] = useState(false);
   const [chosen, setChosen] = useState<Side>('heads');
@@ -39,22 +37,22 @@ export function CoinFlipGame() {
         clearInterval(interval);
         (async () => {
           try {
-            const { roundId } = await pfCreateRound();
-            const { random } = await pfRandom(roundId, clientSeed, nonceRef.current);
-            const outcome: Side = random < 0.5 ? 'heads' : 'tails';
-            void (await pfReveal(roundId));
+            const { outcome, won, payout } = await apiPlayCoinFlip({
+              clientSeed,
+              nonce: nonceRef.current,
+              betAmount: amount,
+              currency,
+              choice: chosen,
+            });
 
             setCoinFace(outcome);
             setAnimPhase(0);
-            const won = outcome === chosen;
-            const payout = won ? +(amount * RTP_99_MULTIPLIER).toFixed(8) : 0;
             if (won) { addWinnings(payout, currency, 'Coin Flip'); playWin(); }
             else { recordLoss(amount, currency, 'Coin Flip'); playLoss(); }
             setResult({ won, side: outcome, payout, currency });
           } catch {
-            recordLoss(amount, currency, 'Coin Flip');
-            playLoss();
-            setResult({ won: false, side: chosen === 'heads' ? 'tails' : 'heads', payout: 0, currency });
+            refundBet(amount, currency, 'Coin Flip');
+            setResult(null);
           } finally {
             setFlipping(false);
           }

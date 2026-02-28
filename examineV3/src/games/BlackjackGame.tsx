@@ -3,12 +3,9 @@ import { useWallet } from '../context/WalletContext';
 import { BetControls } from '../components/BetControls';
 import { useLanguage } from '../context/LanguageContext';
 import { playCardDeal, playCardFlip, playWin, playBigWin, playLoss, stopAllGameSounds } from '../utils/sounds';
-import { pfCreateRound, pfRandom, pfReveal } from '../api/provablyFair';
+import { dealBlackjack as apiDealBlackjack } from '../api/casino';
 import { RTP } from '../config/rtp';
 import type { Currency } from '../types';
-
-// NOTE: This is a simplified blackjack implementation.
-// We slightly reduce the blackjack payout to target RTP in the 98.5–99% range.
 const BLACKJACK_PAYOUT_MULT = 2.5 * (RTP.BLACKJACK / 0.99);
 
 type Suit = '♠' | '♥' | '♦' | '♣';
@@ -17,33 +14,6 @@ interface Card { rank: Rank; suit: Suit; hidden?: boolean }
 type GamePhase = 'idle' | 'player' | 'dealer' | 'result';
 type GameResult = 'player' | 'dealer' | 'push' | 'blackjack' | 'bust';
 
-const SUITS: Suit[] = ['♠', '♥', '♦', '♣'];
-const RANKS: Rank[] = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
-
-function createDeck(): Card[] {
-  const deck: Card[] = [];
-  for (const suit of SUITS) for (const rank of RANKS) deck.push({ rank, suit });
-  return deck;
-}
-
-function lcg(seed: number) {
-  let s = seed >>> 0;
-  return () => {
-    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
-    return s / 2 ** 32;
-  };
-}
-
-function shuffleDeckFromRandom(deck: Card[], r: number): Card[] {
-  const seed = Math.floor(Math.max(0, Math.min(0.999999999, r)) * 2 ** 32);
-  const next = lcg(seed);
-  const a = [...deck];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(next() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
 function cardValue(c: Card): number {
   if (c.hidden) return 0;
   if (['J','Q','K'].includes(c.rank)) return 10;
@@ -124,7 +94,7 @@ function Hand({ cards, label, value, active }: { cards: Card[]; label: string; v
 }
 
 export function BlackjackGame() {
-  const { placeBet, addWinnings, recordLoss, userId } = useWallet();
+  const { placeBet, refundBet, addWinnings, recordLoss, userId } = useWallet();
   const { t } = useLanguage();
   const [phase, setPhase] = useState<GamePhase>('idle');
   const [deck, setDeck] = useState<Card[]>([]);
@@ -149,12 +119,8 @@ export function BlackjackGame() {
 
     (async () => {
       try {
-        const { roundId } = await pfCreateRound();
-        const { random } = await pfRandom(roundId, clientSeed, nonceRef.current);
-        void (await pfReveal(roundId));
-
-        const shuffled = shuffleDeckFromRandom(createDeck(), random);
-        const newDeck = [...shuffled];
+        const { deck: dealt } = await apiDealBlackjack({ clientSeed, nonce: nonceRef.current });
+        const newDeck = [...(dealt as Card[])];
         const p: Card[] = [newDeck.pop()!, newDeck.pop()!];
         const d: Card[] = [newDeck.pop()!, { ...newDeck.pop()!, hidden: true }];
         playCardDeal();
@@ -180,11 +146,9 @@ export function BlackjackGame() {
           setPhase('player');
         }
       } catch {
-        // If backend fails, treat as loss (real-money mode should require backend)
-        recordLoss(amount, currency, 'Blackjack');
-        setResult('dealer');
-        setPhase('result');
-        playLoss();
+        refundBet(amount, currency, 'Blackjack');
+        setResult(null);
+        setPhase('idle');
       }
     })();
   };

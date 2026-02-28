@@ -8,16 +8,12 @@ import {
   startCrashLoop, 
   stopAllGameSounds 
 } from '../utils/sounds';
-import { pfCreateRound, pfRandom, pfReveal } from '../api/provablyFair';
-import { RTP, houseEdge } from '../config/rtp';
+import { startCrash as apiStartCrash } from '../api/casino';
 import './crash.css';
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 const MAX_HISTORY = 10;
 const AUTO_RESTART_DELAY = 3000; // 3 seconds
-
-const RTP_TARGET = RTP.CRASH;
-const HOUSE_EDGE = houseEdge(RTP_TARGET);
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 type GameState = 'IDLE' | 'STARTING' | 'FLYING' | 'CRASHED';
@@ -26,7 +22,7 @@ const USD_RATES: Record<string, number> = { BTC: 67420, ETH: 3521, TON: 5.84, US
 
 export function CrashGame() {
   // Wallet Context
-  const { wallet, placeBet, addWinnings, recordLoss, selectedCurrency, userId } = useWallet();
+  const { wallet, placeBet, refundBet, addWinnings, recordLoss, selectedCurrency, userId } = useWallet();
 
   // Game State
   const [gameState, setGameState] = useState<GameState>('IDLE');
@@ -105,13 +101,7 @@ export function CrashGame() {
 
     (async () => {
       try {
-        const { roundId } = await pfCreateRound();
-        const { random } = await pfRandom(roundId, clientSeed, nonceRef.current);
-        void (await pfReveal(roundId));
-
-        const u = Math.max(1e-12, Math.min(1 - 1e-12, random));
-        const raw = (1 - HOUSE_EDGE) / u;
-        const crashPoint = Math.max(1.0, Math.min(1000000, Math.floor(raw * 100) / 100));
+        const { crashPoint } = await apiStartCrash({ clientSeed, nonce: nonceRef.current });
 
         crashPointRef.current = crashPoint;
         startTimeRef.current = Date.now();
@@ -123,11 +113,19 @@ export function CrashGame() {
         // Start Animation
         runGameLoop();
       } catch {
-        crashPointRef.current = 1.0;
-        startTimeRef.current = Date.now();
-        stopAllGameSounds();
-        soundLoopStopRef.current = startCrashLoop();
-        runGameLoop();
+        if (hasBetRef.current && !cashedOutRef.current) {
+          const amount = placedBetAmountRef.current;
+          refundBet(amount, selectedCurrency, 'CRASH');
+          setHasBet(false);
+        }
+
+        setGameState('CRASHED');
+        setMultiplier(1.00);
+        setHistory(prev => [1.00, ...prev].slice(0, MAX_HISTORY));
+
+        setTimeout(() => {
+          if (mountedRef.current) startGameCycle();
+        }, AUTO_RESTART_DELAY);
       }
     })();
   };

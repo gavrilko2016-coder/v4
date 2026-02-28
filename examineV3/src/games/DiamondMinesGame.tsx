@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useWallet } from '../context/WalletContext';
 import { BetControls } from '../components/BetControls';
 import { playClick, playWin, playBigWin, playLoss, stopAllGameSounds } from '../utils/sounds';
-import { pfCreateRound, pfRandom, pfReveal } from '../api/provablyFair';
+import { startMines as apiStartMines } from '../api/casino';
 import { RTP, houseEdge } from '../config/rtp';
 import type { Currency } from '../types';
 
@@ -15,32 +15,18 @@ interface Cell {
   state: CellState;
 }
 
-function lcg(seed: number) {
-  let s = seed >>> 0;
-  return () => {
-    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
-    return s / 2 ** 32;
-  };
-}
-
-function generateGridFromRandom(mineCount: number, r: number): Cell[] {
-  const base = generateGrid(0);
-  const seed = Math.floor(Math.max(0, Math.min(0.999999999, r)) * 2 ** 32);
-  const next = lcg(seed);
-
-  const indices = Array.from({ length: GRID_SIZE }, (_, i) => i);
-  // Fisher-Yates shuffle with seeded RNG
-  for (let i = indices.length - 1; i > 0; i--) {
-    const j = Math.floor(next() * (i + 1));
-    [indices[i], indices[j]] = [indices[j], indices[i]];
+function gridFromMines(mines: number[]): Cell[] {
+  const cells: Cell[] = Array.from({ length: GRID_SIZE }, (_, i) => ({
+    id: i,
+    hasMine: false,
+    state: 'hidden',
+  }));
+  for (const idx of mines) {
+    if (Number.isInteger(idx) && idx >= 0 && idx < GRID_SIZE) {
+      cells[idx].hasMine = true;
+    }
   }
-
-  for (let k = 0; k < mineCount; k++) {
-    const idx = indices[k];
-    base[idx].hasMine = true;
-  }
-
-  return base;
+  return cells;
 }
 
 type GamePhase = 'idle' | 'playing' | 'won' | 'lost';
@@ -49,22 +35,6 @@ const GRID_SIZE = 25; // 5×5
 
 const MINE_OPTIONS = [1, 3, 5, 10, 15, 20];
 
-function generateGrid(mineCount: number): Cell[] {
-  const cells: Cell[] = Array.from({ length: GRID_SIZE }, (_, i) => ({
-    id: i,
-    hasMine: false,
-    state: 'hidden',
-  }));
-  let placed = 0;
-  while (placed < mineCount) {
-    const idx = Math.floor(Math.random() * GRID_SIZE);
-    if (!cells[idx].hasMine) {
-      cells[idx].hasMine = true;
-      placed++;
-    }
-  }
-  return cells;
-}
 
 function getMultiplier(revealed: number, mineCount: number): number {
   if (revealed === 0) return 1;
@@ -201,7 +171,7 @@ function BoomModal({ onClose }: { onClose: () => void }) {
 
 // ─── Main Game ──────────────────────────────────────────────────────────────
 export function DiamondMinesGame() {
-  const { placeBet, addWinnings, recordLoss, userId } = useWallet();
+  const { placeBet, refundBet, addWinnings, recordLoss, userId } = useWallet();
   const [phase, setPhase] = useState<GamePhase>('idle');
   const [cells, setCells] = useState<Cell[]>([]);
   const [mineCount, setMineCount] = useState(3);
@@ -234,14 +204,12 @@ export function DiamondMinesGame() {
 
     (async () => {
       try {
-        const { roundId } = await pfCreateRound();
-        const { random } = await pfRandom(roundId, clientSeed, nonceRef.current);
-        void (await pfReveal(roundId));
-        setCells(generateGridFromRandom(mineCount, random));
+        const { mines } = await apiStartMines({ clientSeed, nonce: nonceRef.current, mineCount });
+        setCells(gridFromMines(mines));
       } catch {
-        // If backend is unavailable, fall back to non-deterministic grid.
-        // This is not suitable for real-money mode; backend should be required in production.
-        setCells(generateGrid(mineCount));
+        refundBet(amount, currency, 'Diamond Mines');
+        setPhase('idle');
+        setCells([]);
       }
     })();
   }, [placeBet, mineCount]);

@@ -3,13 +3,13 @@ import { useWallet } from '../context/WalletContext';
 import { useLanguage } from '../context/LanguageContext';
 import { playWin, playLoss, playClick, stopAllGameSounds } from '../utils/sounds';
 import { BetControls } from '../components/BetControls';
-import { pfCreateRound, pfRandom, pfReveal } from '../api/provablyFair';
+import { playLimbo as apiPlayLimbo } from '../api/casino';
 import type { Currency } from '../types';
 
 const HOUSE_EDGE = 0.01;
 
 export function LimboGame() {
-  const { placeBet, addWinnings, recordLoss, userId } = useWallet();
+  const { placeBet, refundBet, addWinnings, recordLoss, userId } = useWallet();
   useLanguage();
   
   const [target, setTarget] = useState<number>(2.00);
@@ -139,26 +139,24 @@ export function LimboGame() {
 
     (async () => {
       try {
-        const { roundId } = await pfCreateRound();
-        const { random } = await pfRandom(roundId, clientSeed, nonceRef.current);
-        void (await pfReveal(roundId));
+        const res = await apiPlayLimbo({
+          clientSeed,
+          nonce: nonceRef.current,
+          betAmount: amount,
+          currency,
+          target: clampedTarget,
+        });
 
-        const u = Math.max(1e-12, Math.min(1 - 1e-12, random));
-        const raw = (1 - HOUSE_EDGE) / u;
-        const clamped = Math.max(1.0, Math.min(1000000, raw));
-
-        finalResult = Math.floor(clamped * 100) / 100;
-        isWin = finalResult >= clampedTarget;
-        payout = isWin ? +(amount * clampedTarget).toFixed(8) : 0;
+        finalResult = res.result;
+        isWin = res.won;
+        payout = res.payout;
 
         animRef.current = requestAnimationFrame(animate);
       } catch {
         setRunning(false);
-        recordLoss(amount, currency, 'Limbo');
-        playLoss();
-        setWin(false);
-        setResult(1.00);
-        setHistory(prev => [{ val: 1.00, won: false }, ...prev].slice(0, 10));
+        autoRef.current.active = false;
+        setIsAuto(false);
+        refundBet(amount, currency, 'Limbo');
       }
     })();
   };
