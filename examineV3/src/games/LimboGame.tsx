@@ -3,28 +3,13 @@ import { useWallet } from '../context/WalletContext';
 import { useLanguage } from '../context/LanguageContext';
 import { playWin, playLoss, playClick, stopAllGameSounds } from '../utils/sounds';
 import { BetControls } from '../components/BetControls';
+import { pfCreateRound, pfRandom, pfReveal } from '../api/provablyFair';
 import type { Currency } from '../types';
 
-const WIN_RATE = 0.7;
-
-// Provably Fair Logic
-function generateResult(target: number, forceWin: boolean): number {
-  const clampedTarget = Math.max(1.01, Math.min(1000000, target));
-
-  if (forceWin) {
-    const max = 1000000;
-    const span = Math.max(0.01, Math.min(max - clampedTarget, clampedTarget * 5));
-    const res = clampedTarget + Math.random() * span;
-    return Math.max(1.00, Math.min(1000000, res));
-  }
-
-  const upper = Math.max(1.00, clampedTarget - 0.01);
-  const res = 1.00 + Math.random() * Math.max(0, upper - 1.00);
-  return Math.max(1.00, Math.min(1000000, res));
-}
+const HOUSE_EDGE = 0.01;
 
 export function LimboGame() {
-  const { placeBet, addWinnings, recordLoss } = useWallet();
+  const { placeBet, addWinnings, recordLoss, userId } = useWallet();
   useLanguage();
   
   const [target, setTarget] = useState<number>(2.00);
@@ -57,7 +42,7 @@ export function LimboGame() {
   }, []);
 
   // Calculate Win Chance and Roll Over based on Target
-  const winChance = Math.min(99, 99 / target);
+  const winChance = Math.min(99, ((1 - HOUSE_EDGE) * 100) / target);
   const sliderChance = Number.isFinite(winChance) ? Math.max(0.01, Math.min(99, winChance)) : 50;
   
   const handleTargetChange = (val: number) => {
@@ -67,7 +52,7 @@ export function LimboGame() {
   
   const handleChanceChange = (val: number) => {
     const newChance = Math.max(0.01, Math.min(99, val));
-    setTarget(99 / newChance);
+    setTarget(((1 - HOUSE_EDGE) * 100) / newChance);
   };
 
   const showInsufficientFunds = () => {
@@ -89,12 +74,18 @@ export function LimboGame() {
     setRunning(true);
     setWin(null);
     playClick();
-    nonceRef.current++;
+    nonceRef.current += 1;
 
-    const forceWin = Math.random() < WIN_RATE;
-    const finalResult = generateResult(target, forceWin);
-    const isWin = finalResult >= target;
-    const payout = isWin ? +(amount * target).toFixed(8) : 0;
+    const clientSeed = userId || 'guest';
+
+    // We'll compute finalResult from provably-fair RNG.
+    // Limbo distribution: result = (1 - edge) / u
+    // This yields P(result >= m) = (1 - edge) / m and RTP ~= (1 - edge).
+    const clampedTarget = Math.max(1.01, Math.min(1000000, target));
+
+    let finalResult = 1.00;
+    let isWin = false;
+    let payout = 0;
 
     // Fast animation for Auto
     const isFast = autoRef.current.active;
@@ -114,7 +105,7 @@ export function LimboGame() {
         setResult(finalResult);
         setRunning(false);
         setWin(isWin);
-        
+
         if (isWin) {
           addWinnings(payout, currency, 'Limbo');
           playWin();
@@ -122,7 +113,7 @@ export function LimboGame() {
           recordLoss(amount, currency, 'Limbo');
           playLoss();
         }
-        
+
         setHistory(prev => [{ val: finalResult, won: isWin }, ...prev].slice(0, 10));
 
         // Auto Logic
@@ -145,7 +136,31 @@ export function LimboGame() {
         }
       }
     };
-    animRef.current = requestAnimationFrame(animate);
+
+    (async () => {
+      try {
+        const { roundId } = await pfCreateRound();
+        const { random } = await pfRandom(roundId, clientSeed, nonceRef.current);
+        void (await pfReveal(roundId));
+
+        const u = Math.max(1e-12, Math.min(1 - 1e-12, random));
+        const raw = (1 - HOUSE_EDGE) / u;
+        const clamped = Math.max(1.0, Math.min(1000000, raw));
+
+        finalResult = Math.floor(clamped * 100) / 100;
+        isWin = finalResult >= clampedTarget;
+        payout = isWin ? +(amount * clampedTarget).toFixed(8) : 0;
+
+        animRef.current = requestAnimationFrame(animate);
+      } catch {
+        setRunning(false);
+        recordLoss(amount, currency, 'Limbo');
+        playLoss();
+        setWin(false);
+        setResult(1.00);
+        setHistory(prev => [{ val: 1.00, won: false }, ...prev].slice(0, 10));
+      }
+    })();
   };
 
   const handleBet = (amount: number, currency: Currency) => {

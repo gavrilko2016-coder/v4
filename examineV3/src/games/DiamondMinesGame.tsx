@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWallet } from '../context/WalletContext';
 import { BetControls } from '../components/BetControls';
 import { playClick, playWin, playBigWin, playLoss, stopAllGameSounds } from '../utils/sounds';
+import { pfCreateRound, pfRandom, pfReveal } from '../api/provablyFair';
+import { RTP, houseEdge } from '../config/rtp';
 import type { Currency } from '../types';
-
-const WIN_RATE = 0.7;
 
 type CellState = 'hidden' | 'diamond' | 'mine' | 'revealed';
 
@@ -13,6 +13,34 @@ interface Cell {
   id: number;
   hasMine: boolean;
   state: CellState;
+}
+
+function lcg(seed: number) {
+  let s = seed >>> 0;
+  return () => {
+    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
+    return s / 2 ** 32;
+  };
+}
+
+function generateGridFromRandom(mineCount: number, r: number): Cell[] {
+  const base = generateGrid(0);
+  const seed = Math.floor(Math.max(0, Math.min(0.999999999, r)) * 2 ** 32);
+  const next = lcg(seed);
+
+  const indices = Array.from({ length: GRID_SIZE }, (_, i) => i);
+  // Fisher-Yates shuffle with seeded RNG
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+
+  for (let k = 0; k < mineCount; k++) {
+    const idx = indices[k];
+    base[idx].hasMine = true;
+  }
+
+  return base;
 }
 
 type GamePhase = 'idle' | 'playing' | 'won' | 'lost';
@@ -45,8 +73,8 @@ function getMultiplier(revealed: number, mineCount: number): number {
   for (let i = 0; i < revealed; i++) {
     mult *= (safeCount - i) / (GRID_SIZE - i);
   }
-  // House edge ~3%
-  return Math.max(1.01, +(0.97 / mult).toFixed(3));
+  const edge = houseEdge(RTP.DIAMOND_MINES);
+  return Math.max(1.01, +(((1 - edge) / mult).toFixed(3)));
 }
 
 function getCellEmoji(cell: Cell, phase: GamePhase): { emoji: string; color: string; bg: string; border: string } {
@@ -173,7 +201,7 @@ function BoomModal({ onClose }: { onClose: () => void }) {
 
 // ─── Main Game ──────────────────────────────────────────────────────────────
 export function DiamondMinesGame() {
-  const { placeBet, addWinnings, recordLoss } = useWallet();
+  const { placeBet, addWinnings, recordLoss, userId } = useWallet();
   const [phase, setPhase] = useState<GamePhase>('idle');
   const [cells, setCells] = useState<Cell[]>([]);
   const [mineCount, setMineCount] = useState(3);
@@ -185,6 +213,7 @@ export function DiamondMinesGame() {
   const [showBoomModal, setShowBoomModal] = useState(false);
   const [cashoutProfit, setCashoutProfit] = useState(0);
   const [cashoutMult, setCashoutMult] = useState(1);
+  const nonceRef = useRef(0);
 
   useEffect(() => () => stopAllGameSounds(), []);
 
@@ -198,8 +227,23 @@ export function DiamondMinesGame() {
     setBetCurrency(currency);
     setRevealed(0);
     setMultiplier(1);
-    setCells(generateGrid(mineCount));
     setPhase('playing');
+
+    nonceRef.current += 1;
+    const clientSeed = userId || 'guest';
+
+    (async () => {
+      try {
+        const { roundId } = await pfCreateRound();
+        const { random } = await pfRandom(roundId, clientSeed, nonceRef.current);
+        void (await pfReveal(roundId));
+        setCells(generateGridFromRandom(mineCount, random));
+      } catch {
+        // If backend is unavailable, fall back to non-deterministic grid.
+        // This is not suitable for real-money mode; backend should be required in production.
+        setCells(generateGrid(mineCount));
+      }
+    })();
   }, [placeBet, mineCount]);
 
   const revealCell = useCallback((idx: number) => {
@@ -210,35 +254,6 @@ export function DiamondMinesGame() {
     playClick();
 
     if (cell.hasMine) {
-      // Bias: turn mine into safe click in ~80% of cases
-      if (Math.random() < WIN_RATE) {
-        const candidates = cells
-          .map((c, i) => ({ c, i }))
-          .filter(x => x.i !== idx && x.c.state === 'hidden' && !x.c.hasMine);
-
-        if (candidates.length > 0) {
-          const moveTo = candidates[Math.floor(Math.random() * candidates.length)].i;
-          const newRevealed = revealed + 1;
-          const newCells = cells.map((c, i) => {
-            if (i === idx) return { ...c, hasMine: false, state: 'diamond' as CellState };
-            if (i === moveTo) return { ...c, hasMine: true };
-            return c;
-          });
-          setCells(newCells);
-          setRevealed(newRevealed);
-          const newMult = getMultiplier(newRevealed, mineCount);
-          setMultiplier(newMult);
-
-          const safeLeft = GRID_SIZE - mineCount - newRevealed;
-          if (safeLeft === 0) {
-            handleCashout(newRevealed, newCells, newMult, betAmount, betCurrency);
-          } else {
-            playWin();
-          }
-          return;
-        }
-      }
-
       // Hit mine — reveal all
       const newCells = cells.map((c, i) =>
         i === idx

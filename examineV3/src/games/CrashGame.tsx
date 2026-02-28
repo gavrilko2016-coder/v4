@@ -8,13 +8,16 @@ import {
   startCrashLoop, 
   stopAllGameSounds 
 } from '../utils/sounds';
+import { pfCreateRound, pfRandom, pfReveal } from '../api/provablyFair';
+import { RTP, houseEdge } from '../config/rtp';
 import './crash.css';
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
 const MAX_HISTORY = 10;
 const AUTO_RESTART_DELAY = 3000; // 3 seconds
 
-const WIN_RATE = 0.7;
+const RTP_TARGET = RTP.CRASH;
+const HOUSE_EDGE = houseEdge(RTP_TARGET);
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 type GameState = 'IDLE' | 'STARTING' | 'FLYING' | 'CRASHED';
@@ -23,7 +26,7 @@ const USD_RATES: Record<string, number> = { BTC: 67420, ETH: 3521, TON: 5.84, US
 
 export function CrashGame() {
   // Wallet Context
-  const { wallet, placeBet, addWinnings, recordLoss, selectedCurrency } = useWallet();
+  const { wallet, placeBet, addWinnings, recordLoss, selectedCurrency, userId } = useWallet();
 
   // Game State
   const [gameState, setGameState] = useState<GameState>('IDLE');
@@ -45,6 +48,7 @@ export function CrashGame() {
   const crashPointRef = useRef<number>(0);
   const mountedRef = useRef(true);
   const soundLoopStopRef = useRef<(() => void) | null>(null);
+  const nonceRef = useRef(0);
 
   // ─── LIFECYCLE ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -95,15 +99,37 @@ export function CrashGame() {
     if (!mountedRef.current) return;
 
     setGameState('FLYING');
-    crashPointRef.current = generateCrashPoint();
-    startTimeRef.current = Date.now();
 
-    // Start Sound
-    stopAllGameSounds(); // Safety clear
-    soundLoopStopRef.current = startCrashLoop();
+    nonceRef.current += 1;
+    const clientSeed = userId || 'guest';
 
-    // Start Animation
-    runGameLoop();
+    (async () => {
+      try {
+        const { roundId } = await pfCreateRound();
+        const { random } = await pfRandom(roundId, clientSeed, nonceRef.current);
+        void (await pfReveal(roundId));
+
+        const u = Math.max(1e-12, Math.min(1 - 1e-12, random));
+        const raw = (1 - HOUSE_EDGE) / u;
+        const crashPoint = Math.max(1.0, Math.min(1000000, Math.floor(raw * 100) / 100));
+
+        crashPointRef.current = crashPoint;
+        startTimeRef.current = Date.now();
+
+        // Start Sound
+        stopAllGameSounds(); // Safety clear
+        soundLoopStopRef.current = startCrashLoop();
+
+        // Start Animation
+        runGameLoop();
+      } catch {
+        crashPointRef.current = 1.0;
+        startTimeRef.current = Date.now();
+        stopAllGameSounds();
+        soundLoopStopRef.current = startCrashLoop();
+        runGameLoop();
+      }
+    })();
   };
 
   // We need a ref for hasBet because RAF loop won't see updated state easily
@@ -128,7 +154,6 @@ export function CrashGame() {
       const stored = localStorage.getItem(storageKey);
       if (stored !== null) {
         setBetAmountUsdt(stored);
-        return;
       }
     } catch {}
   }, [storageKey, selectedCurrency]);
@@ -141,20 +166,6 @@ export function CrashGame() {
   };
 
   // ─── CORE LOGIC ────────────────────────────────────────────────────────────
-
-  const generateCrashPoint = (): number => {
-    const forceWin = Math.random() < WIN_RATE;
-
-    if (forceWin) {
-      // Favorable round: higher crash point (more time to cash out)
-      const hi = 2.0 + Math.random() * 6.0; // 2.00x .. 8.00x
-      return Math.floor(hi * 100) / 100;
-    }
-
-    // Unfavorable round: lower crash point
-    const lo = 1.0 + Math.random() * 0.6; // 1.00x .. 1.60x
-    return Math.floor(lo * 100) / 100;
-  };
 
   const handleBet = () => {
     if (!isBetValid) return;

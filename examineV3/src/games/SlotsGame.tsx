@@ -3,9 +3,11 @@ import { useWallet } from '../context/WalletContext';
 import { BetControls } from '../components/BetControls';
 import { useLanguage } from '../context/LanguageContext';
 import { playSlotSpin, playSlotStop, playWin, playBigWin, playLoss, stopAllGameSounds } from '../utils/sounds';
+import { pfCreateRound, pfRandom, pfReveal } from '../api/provablyFair';
+import { RTP } from '../config/rtp';
 import type { Currency } from '../types';
 
-const WIN_RATE = 0.7;
+const RTP_TARGET = RTP.SLOTS;
 
 const SYMBOLS = ['🍋', '🍊', '🍇', '⭐', '💎', '7️⃣', '🎰', '🔔'];
 const PAYOUTS: Record<string, number> = {
@@ -13,40 +15,34 @@ const PAYOUTS: Record<string, number> = {
   '💎💎💎': 15, '7️⃣7️⃣7️⃣': 25, '🎰🎰🎰': 50, '🔔🔔🔔': 100,
 };
 
-const JACKPOT_REELS: string[][] = [
-  ['🍋', '🍋', '🍋'],
-  ['🍊', '🍊', '🍊'],
-  ['🍇', '🍇', '🍇'],
-  ['⭐', '⭐', '⭐'],
-  ['💎', '💎', '💎'],
-  ['7️⃣', '7️⃣', '7️⃣'],
-  ['🎰', '🎰', '🎰'],
-  ['🔔', '🔔', '🔔'],
-];
-
-function generateFinalReels(forceWin: boolean): string[] {
-  if (forceWin) {
-    const makeJackpot = Math.random() < 0.25;
-    if (makeJackpot) {
-      return JACKPOT_REELS[Math.floor(Math.random() * JACKPOT_REELS.length)];
-    }
-
-    const sym = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
-    const otherPool = SYMBOLS.filter(s => s !== sym);
-    const other = otherPool[Math.floor(Math.random() * otherPool.length)];
-    const oddIndex = Math.floor(Math.random() * 3);
-    const reels = [sym, sym, sym];
-    reels[oddIndex] = other;
-    return reels;
-  }
-
-  const pool = [...SYMBOLS];
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
-  }
-  return pool.slice(0, 3);
+function lcg(seed: number) {
+  let s = seed >>> 0;
+  return () => {
+    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
+    return s / 2 ** 32;
+  };
 }
+
+function generateFinalReelsFromRandom(r: number): string[] {
+  const seed = Math.floor(Math.max(0, Math.min(0.999999999, r)) * 2 ** 32);
+  const next = lcg(seed);
+  const pick = () => SYMBOLS[Math.floor(next() * SYMBOLS.length)];
+  return [pick(), pick(), pick()];
+}
+
+function expectedRtpForBasePaytable(): number {
+  const n = SYMBOLS.length;
+  // Independent reels, uniform symbols
+  const p3 = 1 / (n * n); // P(all 3 equal) = n*(1/n^3)=1/n^2
+  const p2 = (3 * (n - 1)) / (n * n); // exactly two equal
+
+  const avgJackpot = Object.values(PAYOUTS).reduce((a, b) => a + b, 0) / n;
+  const twoKindMult = 1.5;
+  return p3 * avgJackpot + p2 * twoKindMult;
+}
+
+const BASE_RTP = expectedRtpForBasePaytable();
+const PAYOUT_SCALE = BASE_RTP > 0 ? (RTP_TARGET / BASE_RTP) : 1;
 
 function getResult(reels: string[]): { multiplier: number; label: string; big: boolean } {
   const key = reels.join('');
@@ -58,13 +54,14 @@ function getResult(reels: string[]): { multiplier: number; label: string; big: b
 }
 
 export function SlotsGame() {
-  const { placeBet, addWinnings, recordLoss } = useWallet();
+  const { placeBet, addWinnings, recordLoss, userId } = useWallet();
   const { t } = useLanguage();
   const [spinning, setSpinning] = useState(false);
   const [reels, setReels] = useState(['🍋', '🍊', '🍇']);
   const [resultMsg, setResultMsg] = useState<{ won: boolean; label: string; payout: number; currency: Currency } | null>(null);
   const [blur, setBlur] = useState([false, false, false]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const nonceRef = useRef(0);
 
   useEffect(() => () => {
     stopAllGameSounds();
@@ -78,8 +75,9 @@ export function SlotsGame() {
     setBlur([true, true, true]);
     playSlotSpin();
 
-    const forceWin = Math.random() < WIN_RATE;
-    const finalReels = generateFinalReels(forceWin);
+    nonceRef.current += 1;
+    const clientSeed = userId || 'guest';
+    let finalReels = ['🍋', '🍊', '🍇'];
     let tick = 0;
 
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -97,15 +95,33 @@ export function SlotsGame() {
 
       if (tick >= 34) {
         if (intervalRef.current) clearInterval(intervalRef.current);
-        setReels(finalReels);
-        setBlur([false, false, false]);
-        const { multiplier, label, big } = getResult(finalReels);
-        const won = multiplier > 0;
-        const payout = won ? +(amount * multiplier).toFixed(8) : 0;
-        if (won) { addWinnings(payout, currency, 'Slots'); big ? playBigWin() : playWin(); }
-        else { recordLoss(amount, currency, 'Slots'); playLoss(); }
-        setResultMsg({ won, label, payout, currency });
-        setSpinning(false);
+        (async () => {
+          try {
+            const { roundId } = await pfCreateRound();
+            const { random } = await pfRandom(roundId, clientSeed, nonceRef.current);
+            void (await pfReveal(roundId));
+
+            finalReels = generateFinalReelsFromRandom(random);
+            setReels(finalReels);
+            setBlur([false, false, false]);
+
+            const base = getResult(finalReels);
+            const scaledMultiplier = base.multiplier > 0 ? +(base.multiplier * PAYOUT_SCALE).toFixed(4) : 0;
+            const won = scaledMultiplier > 0;
+            const payout = won ? +(amount * scaledMultiplier).toFixed(8) : 0;
+
+            if (won) { addWinnings(payout, currency, 'Slots'); base.big ? playBigWin() : playWin(); }
+            else { recordLoss(amount, currency, 'Slots'); playLoss(); }
+
+            setResultMsg({ won, label: base.label, payout, currency });
+          } catch {
+            recordLoss(amount, currency, 'Slots');
+            playLoss();
+            setResultMsg({ won: false, label: '💸 No match', payout: 0, currency });
+          } finally {
+            setSpinning(false);
+          }
+        })();
       }
     }, 60);
   };

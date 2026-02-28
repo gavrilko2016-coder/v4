@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useWallet } from '../context/WalletContext';
 import { BetControls } from '../components/BetControls';
 import { useLanguage } from '../context/LanguageContext';
 import { playDiceRoll, playWin, playLoss, playClick } from '../utils/sounds';
+import { pfCreateRound, pfRandom, pfReveal } from '../api/provablyFair';
 import type { Currency } from '../types';
 
-const WIN_RATE = 0.7;
+const HOUSE_EDGE = 0.01;
 
 export function DiceGame() {
-  const { placeBet, addWinnings, recordLoss } = useWallet();
+  const { placeBet, addWinnings, recordLoss, userId } = useWallet();
   const { t } = useLanguage();
   const [rolling, setRolling] = useState(false);
   const [diceValues, setDiceValues] = useState<[number, number]>([3, 4]);
@@ -16,6 +17,7 @@ export function DiceGame() {
   const [mode, setMode] = useState<'over' | 'under'>('over');
   const [result, setResult] = useState<{ won: boolean; payout: number; currency: Currency; roll: number } | null>(null);
   const [animating, setAnimating] = useState(false);
+  const nonceRef = useRef(0);
 
   // Helper to calculate probability for 2 dice (sum 2-12)
   const getWays = (val: number) => {
@@ -34,7 +36,8 @@ export function DiceGame() {
     }
     const chance = ways / 36;
     const wc = (chance * 100).toFixed(2);
-    const mult = chance > 0 ? (0.95 / chance).toFixed(2) : '0.00';
+    const fairMult = chance > 0 ? ((1 - HOUSE_EDGE) / chance) : 0;
+    const mult = chance > 0 ? fairMult.toFixed(2) : '0.00';
     return { winChance: wc, multiplier: Number(mult) };
   };
 
@@ -49,6 +52,9 @@ export function DiceGame() {
     setAnimating(true);
     playDiceRoll();
 
+    nonceRef.current += 1;
+    const clientSeed = userId || 'guest';
+
     let ticks = 0;
     const interval = setInterval(() => {
       setDiceValues([
@@ -58,36 +64,37 @@ export function DiceGame() {
       ticks++;
       if (ticks >= 14) {
         clearInterval(interval);
-        const forceWin = Math.random() < WIN_RATE;
+        (async () => {
+          try {
+            const { roundId } = await pfCreateRound();
+            const { random } = await pfRandom(roundId, clientSeed, nonceRef.current);
+            void (await pfReveal(roundId));
 
-        const winSums: number[] = [];
-        const loseSums: number[] = [];
-        for (let sum = 2; sum <= 12; sum++) {
-          const isWin = mode === 'over' ? sum > target : sum <= target;
-          (isWin ? winSums : loseSums).push(sum);
-        }
-        const chosenPool = forceWin ? winSums : loseSums;
-        const desiredSum = chosenPool[Math.floor(Math.random() * chosenPool.length)];
+            // Uniform over 36 equally-likely outcomes
+            const idx = Math.min(35, Math.floor(random * 36));
+            const d1 = Math.floor(idx / 6) + 1;
+            const d2 = (idx % 6) + 1;
+            const roll = d1 + d2;
 
-        const pairs: Array<[number, number]> = [];
-        for (let a = 1; a <= 6; a++) {
-          for (let b = 1; b <= 6; b++) {
-            if (a + b === desiredSum) pairs.push([a, b]);
+            setDiceValues([d1, d2]);
+            setAnimating(false);
+
+            const won = mode === 'over' ? roll > target : roll <= target;
+            const payout = won ? +(amount * multiplier).toFixed(8) : 0;
+
+            if (won) { addWinnings(payout, currency, 'Dice'); playWin(); }
+            else { recordLoss(amount, currency, 'Dice'); playLoss(); }
+
+            setResult({ won, payout, currency, roll });
+          } catch {
+            setAnimating(false);
+            recordLoss(amount, currency, 'Dice');
+            playLoss();
+            setResult({ won: false, payout: 0, currency, roll: diceValues[0] + diceValues[1] });
+          } finally {
+            setRolling(false);
           }
-        }
-        const [d1, d2] = pairs[Math.floor(Math.random() * pairs.length)];
-        const roll = desiredSum;
-        setDiceValues([d1, d2]);
-        setAnimating(false);
-        
-        const won = mode === 'over' ? roll > target : roll <= target;
-        const payout = won ? +(amount * multiplier).toFixed(8) : 0;
-        
-        if (won) { addWinnings(payout, currency, 'Dice'); playWin(); }
-        else { recordLoss(amount, currency, 'Dice'); playLoss(); }
-        
-        setResult({ won, payout, currency, roll });
-        setRolling(false);
+        })();
       }
     }, 80);
   };

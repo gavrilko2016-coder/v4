@@ -1,11 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useWallet } from '../context/WalletContext';
 import { BetControls } from '../components/BetControls';
 import { useLanguage } from '../context/LanguageContext';
 import { playCardDeal, playCardFlip, playWin, playBigWin, playLoss, stopAllGameSounds } from '../utils/sounds';
+import { pfCreateRound, pfRandom, pfReveal } from '../api/provablyFair';
+import { RTP } from '../config/rtp';
 import type { Currency } from '../types';
 
-const WIN_RATE = 0.7;
+// NOTE: This is a simplified blackjack implementation.
+// We slightly reduce the blackjack payout to target RTP in the 98.5–99% range.
+const BLACKJACK_PAYOUT_MULT = 2.5 * (RTP.BLACKJACK / 0.99);
 
 type Suit = '♠' | '♥' | '♦' | '♣';
 type Rank = 'A' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K';
@@ -19,7 +23,26 @@ const RANKS: Rank[] = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 function createDeck(): Card[] {
   const deck: Card[] = [];
   for (const suit of SUITS) for (const rank of RANKS) deck.push({ rank, suit });
-  return deck.sort(() => Math.random() - 0.5);
+  return deck;
+}
+
+function lcg(seed: number) {
+  let s = seed >>> 0;
+  return () => {
+    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
+    return s / 2 ** 32;
+  };
+}
+
+function shuffleDeckFromRandom(deck: Card[], r: number): Card[] {
+  const seed = Math.floor(Math.max(0, Math.min(0.999999999, r)) * 2 ** 32);
+  const next = lcg(seed);
+  const a = [...deck];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 function cardValue(c: Card): number {
   if (c.hidden) return 0;
@@ -101,7 +124,7 @@ function Hand({ cards, label, value, active }: { cards: Card[]; label: string; v
 }
 
 export function BlackjackGame() {
-  const { placeBet, addWinnings, recordLoss } = useWallet();
+  const { placeBet, addWinnings, recordLoss, userId } = useWallet();
   const { t } = useLanguage();
   const [phase, setPhase] = useState<GamePhase>('idle');
   const [deck, setDeck] = useState<Card[]>([]);
@@ -111,6 +134,7 @@ export function BlackjackGame() {
   const [betCurrency, setBetCurrency] = useState<Currency>('TON');
   const [result, setResult] = useState<GameResult | null>(null);
   const [processing, setProcessing] = useState(false);
+  const nonceRef = useRef(0);
 
   useEffect(() => () => stopAllGameSounds(), []);
 
@@ -120,57 +144,49 @@ export function BlackjackGame() {
     setBetCurrency(currency);
     setResult(null);
 
-    const forceWin = Math.random() < WIN_RATE;
-    if (forceWin) {
-      const p: Card[] = [{ rank: 'A', suit: '♠' }, { rank: 'K', suit: '♦' }];
-      const d: Card[] = [{ rank: '9', suit: '♣' }, { rank: '7', suit: '♠' }];
-      setDeck([]);
-      setPlayerHand(p);
-      setDealerHand(d);
-      const payout = +(amount * 2.5).toFixed(8);
-      addWinnings(payout, currency, 'Blackjack');
-      setResult('blackjack');
-      setPhase('result');
-      playBigWin();
-      return;
-    } else {
-      const p: Card[] = [{ rank: '9', suit: '♦' }, { rank: '8', suit: '♥' }];
-      const d: Card[] = [{ rank: 'A', suit: '♣' }, { rank: 'K', suit: '♠' }];
-      setDeck([]);
-      setPlayerHand(p);
-      setDealerHand(d);
-      recordLoss(amount, currency, 'Blackjack');
-      setResult('dealer');
-      setPhase('result');
-      playLoss();
-      return;
-    }
+    nonceRef.current += 1;
+    const clientSeed = userId || 'guest';
 
-    const newDeck = createDeck();
-    const p: Card[] = [newDeck.pop()!, newDeck.pop()!];
-    const d: Card[] = [newDeck.pop()!, { ...newDeck.pop()!, hidden: true }];
-    playCardDeal();
-    setDeck(newDeck);
-    setPlayerHand(p);
-    setDealerHand(d);
+    (async () => {
+      try {
+        const { roundId } = await pfCreateRound();
+        const { random } = await pfRandom(roundId, clientSeed, nonceRef.current);
+        void (await pfReveal(roundId));
 
-    if (isBlackjack(p)) {
-      const revD = d.map(c => ({ ...c, hidden: false }));
-      setDealerHand(revD);
-      if (isBlackjack(revD)) {
-        setResult('push');
-        addWinnings(amount, currency, 'Blackjack');
-        playWin();
-      } else {
-        const payout = +(amount * 2.5).toFixed(8);
-        addWinnings(payout, currency, 'Blackjack');
-        setResult('blackjack');
-        playBigWin();
+        const shuffled = shuffleDeckFromRandom(createDeck(), random);
+        const newDeck = [...shuffled];
+        const p: Card[] = [newDeck.pop()!, newDeck.pop()!];
+        const d: Card[] = [newDeck.pop()!, { ...newDeck.pop()!, hidden: true }];
+        playCardDeal();
+        setDeck(newDeck);
+        setPlayerHand(p);
+        setDealerHand(d);
+
+        if (isBlackjack(p)) {
+          const revD = d.map(c => ({ ...c, hidden: false }));
+          setDealerHand(revD);
+          if (isBlackjack(revD)) {
+            setResult('push');
+            addWinnings(amount, currency, 'Blackjack');
+            playWin();
+          } else {
+            const payout = +(amount * BLACKJACK_PAYOUT_MULT).toFixed(8);
+            addWinnings(payout, currency, 'Blackjack');
+            setResult('blackjack');
+            playBigWin();
+          }
+          setPhase('result');
+        } else {
+          setPhase('player');
+        }
+      } catch {
+        // If backend fails, treat as loss (real-money mode should require backend)
+        recordLoss(amount, currency, 'Blackjack');
+        setResult('dealer');
+        setPhase('result');
+        playLoss();
       }
-      setPhase('result');
-    } else {
-      setPhase('player');
-    }
+    })();
   };
 
   const hit = () => {
@@ -279,7 +295,7 @@ export function BlackjackGame() {
           style={{ background: `${resultConfig[result].color}11`, borderColor: `${resultConfig[result].color}44`, color: resultConfig[result].color }}>
           {resultConfig[result].emoji} {resultConfig[result].label}
           {result === 'player' && <span className="block text-xs mt-0.5 opacity-75">+{(betAmount * 2).toFixed(4)} {betCurrency}</span>}
-          {result === 'blackjack' && <span className="block text-xs mt-0.5 opacity-75">+{(betAmount * 2.5).toFixed(4)} {betCurrency} (2.5×)</span>}
+          {result === 'blackjack' && <span className="block text-xs mt-0.5 opacity-75">+{(betAmount * BLACKJACK_PAYOUT_MULT).toFixed(4)} {betCurrency} ({BLACKJACK_PAYOUT_MULT.toFixed(2)}×)</span>}
         </div>
       )}
 

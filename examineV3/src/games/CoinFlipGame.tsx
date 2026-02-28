@@ -1,22 +1,24 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useWallet } from '../context/WalletContext';
 import { BetControls } from '../components/BetControls';
 import { useLanguage } from '../context/LanguageContext';
 import { playCoinFlip, playWin, playLoss, playClick } from '../utils/sounds';
+import { pfCreateRound, pfRandom, pfReveal } from '../api/provablyFair';
 import type { Currency } from '../types';
 
 type Side = 'heads' | 'tails';
 
-const WIN_RATE = 0.7;
+const RTP_99_MULTIPLIER = 1.98;
 
 export function CoinFlipGame() {
-  const { placeBet, addWinnings, recordLoss } = useWallet();
+  const { placeBet, addWinnings, recordLoss, userId } = useWallet();
   const { t } = useLanguage();
   const [flipping, setFlipping] = useState(false);
   const [chosen, setChosen] = useState<Side>('heads');
   const [coinFace, setCoinFace] = useState<Side>('heads');
   const [result, setResult] = useState<{ won: boolean; side: Side; payout: number; currency: Currency } | null>(null);
   const [animPhase, setAnimPhase] = useState(0);
+  const nonceRef = useRef(0);
 
   const handleBet = (amount: number, currency: Currency) => {
     if (!placeBet(amount, currency)) return;
@@ -25,6 +27,9 @@ export function CoinFlipGame() {
     setAnimPhase(0);
     playCoinFlip();
 
+    nonceRef.current += 1;
+    const clientSeed = userId || 'guest';
+
     let tick = 0;
     const interval = setInterval(() => {
       tick++;
@@ -32,16 +37,28 @@ export function CoinFlipGame() {
       setAnimPhase(tick % 4);
       if (tick >= 16) {
         clearInterval(interval);
-        const forceWin = Math.random() < WIN_RATE;
-        const outcome: Side = forceWin ? chosen : (chosen === 'heads' ? 'tails' : 'heads');
-        setCoinFace(outcome);
-        setAnimPhase(0);
-        const won = outcome === chosen;
-        const payout = won ? +(amount * 1.95).toFixed(8) : 0;
-        if (won) { addWinnings(payout, currency, 'Coin Flip'); playWin(); }
-        else { recordLoss(amount, currency, 'Coin Flip'); playLoss(); }
-        setResult({ won, side: outcome, payout, currency });
-        setFlipping(false);
+        (async () => {
+          try {
+            const { roundId } = await pfCreateRound();
+            const { random } = await pfRandom(roundId, clientSeed, nonceRef.current);
+            const outcome: Side = random < 0.5 ? 'heads' : 'tails';
+            void (await pfReveal(roundId));
+
+            setCoinFace(outcome);
+            setAnimPhase(0);
+            const won = outcome === chosen;
+            const payout = won ? +(amount * RTP_99_MULTIPLIER).toFixed(8) : 0;
+            if (won) { addWinnings(payout, currency, 'Coin Flip'); playWin(); }
+            else { recordLoss(amount, currency, 'Coin Flip'); playLoss(); }
+            setResult({ won, side: outcome, payout, currency });
+          } catch {
+            recordLoss(amount, currency, 'Coin Flip');
+            playLoss();
+            setResult({ won: false, side: chosen === 'heads' ? 'tails' : 'heads', payout: 0, currency });
+          } finally {
+            setFlipping(false);
+          }
+        })();
       }
     }, 90);
   };
@@ -88,7 +105,7 @@ export function CoinFlipGame() {
       <div className="grid grid-cols-2 gap-2">
         {[
           { label: t.winChance, value: '50%', color: '#ffd700' },
-          { label: t.multiplier, value: '1.95×', color: '#00f5ff' },
+          { label: t.multiplier, value: '1.98×', color: '#00f5ff' },
         ].map(s => (
           <div key={s.label} className="rounded-xl p-2.5 text-center cyber-card" style={{ border: `1px solid ${s.color}33` }}>
             <p className="text-sm font-black font-mono" style={{ color: s.color }}>{s.value}</p>
