@@ -4,6 +4,7 @@ import { BetControls } from '../components/BetControls';
 import { useLanguage } from '../context/LanguageContext';
 import { playCardDeal, playCardFlip, playWin, playBigWin, playLoss, stopAllGameSounds } from '../utils/sounds';
 import { dealBlackjack as apiDealBlackjack } from '../api/casino';
+import { pfCreateRound } from '../api/provablyFair';
 import { RTP } from '../config/rtp';
 import type { Currency } from '../types';
 const BLACKJACK_PAYOUT_MULT = 2.5 * (RTP.BLACKJACK / 0.99);
@@ -119,7 +120,8 @@ export function BlackjackGame() {
 
     (async () => {
       try {
-        const { deck: dealt } = await apiDealBlackjack({ clientSeed, nonce: nonceRef.current });
+        const { roundId } = await pfCreateRound();
+        const { deck: dealt } = await apiDealBlackjack({ roundId, clientSeed, nonce: nonceRef.current });
         const newDeck = [...(dealt as Card[])];
         const p: Card[] = [newDeck.pop()!, newDeck.pop()!];
         const d: Card[] = [newDeck.pop()!, { ...newDeck.pop()!, hidden: true }];

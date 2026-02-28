@@ -9,6 +9,7 @@ import {
   stopAllGameSounds 
 } from '../utils/sounds';
 import { startCrash as apiStartCrash } from '../api/casino';
+import { pfCreateRound } from '../api/provablyFair';
 import './crash.css';
 
 // ─── CONFIGURATION ───────────────────────────────────────────────────────────
@@ -101,7 +102,8 @@ export function CrashGame() {
 
     (async () => {
       try {
-        const { crashPoint } = await apiStartCrash({ clientSeed, nonce: nonceRef.current });
+        const { roundId } = await pfCreateRound();
+        const { crashPoint } = await apiStartCrash({ roundId, clientSeed, nonce: nonceRef.current });
 
         crashPointRef.current = crashPoint;
         startTimeRef.current = Date.now();

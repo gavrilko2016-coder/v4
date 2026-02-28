@@ -4,6 +4,7 @@ import { useWallet } from '../context/WalletContext';
 import { BetControls } from '../components/BetControls';
 import { playClick, playWin, playBigWin, playLoss, stopAllGameSounds } from '../utils/sounds';
 import { startMines as apiStartMines } from '../api/casino';
+import { pfCreateRound } from '../api/provablyFair';
 import { RTP, houseEdge } from '../config/rtp';
 import type { Currency } from '../types';
 
@@ -204,7 +205,8 @@ export function DiamondMinesGame() {
 
     (async () => {
       try {
-        const { mines } = await apiStartMines({ clientSeed, nonce: nonceRef.current, mineCount });
+        const { roundId } = await pfCreateRound();
+        const { mines } = await apiStartMines({ roundId, clientSeed, nonce: nonceRef.current, mineCount });
         setCells(gridFromMines(mines));
       } catch {
         refundBet(amount, currency, 'Diamond Mines');

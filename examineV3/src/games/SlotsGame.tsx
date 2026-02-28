@@ -4,6 +4,7 @@ import { BetControls } from '../components/BetControls';
 import { useLanguage } from '../context/LanguageContext';
 import { playSlotSpin, playSlotStop, playWin, playBigWin, playLoss, stopAllGameSounds } from '../utils/sounds';
 import { playSlots as apiPlaySlots } from '../api/casino';
+import { pfCreateRound } from '../api/provablyFair';
 import type { Currency } from '../types';
 
 const SYMBOLS = ['🍋', '🍊', '🍇', '⭐', '💎', '7️⃣', '🎰', '🔔'];
@@ -65,7 +66,9 @@ export function SlotsGame() {
         if (intervalRef.current) clearInterval(intervalRef.current);
         (async () => {
           try {
+            const { roundId } = await pfCreateRound();
             const { reels: reelsOut, won, payout, label } = await apiPlaySlots({
+              roundId,
               clientSeed,
               nonce: nonceRef.current,
               betAmount: amount,

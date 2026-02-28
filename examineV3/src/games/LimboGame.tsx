@@ -4,6 +4,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { playWin, playLoss, playClick, stopAllGameSounds } from '../utils/sounds';
 import { BetControls } from '../components/BetControls';
 import { playLimbo as apiPlayLimbo } from '../api/casino';
+import { pfCreateRound } from '../api/provablyFair';
 import type { Currency } from '../types';
 
 const HOUSE_EDGE = 0.01;
@@ -139,7 +140,9 @@ export function LimboGame() {
 
     (async () => {
       try {
+        const { roundId } = await pfCreateRound();
         const res = await apiPlayLimbo({
+          roundId,
           clientSeed,
           nonce: nonceRef.current,
           betAmount: amount,

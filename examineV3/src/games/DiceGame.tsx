@@ -1,9 +1,10 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useWallet } from '../context/WalletContext';
 import { BetControls } from '../components/BetControls';
 import { useLanguage } from '../context/LanguageContext';
 import { playDiceRoll, playWin, playLoss, playClick } from '../utils/sounds';
 import { playDice as apiPlayDice } from '../api/casino';
+import { pfCreateRound, pfReveal } from '../api/provablyFair';
 import type { Currency } from '../types';
 
 const HOUSE_EDGE = 0.01;
@@ -16,8 +17,14 @@ export function DiceGame() {
   const [target, setTarget] = useState(7);
   const [mode, setMode] = useState<'over' | 'under'>('over');
   const [result, setResult] = useState<{ won: boolean; payout: number; currency: Currency; roll: number } | null>(null);
+  const [clientSeed, setClientSeed] = useState<string>(userId || 'guest');
+  const [pfRoundId, setPfRoundId] = useState<string | null>(null);
+  const [pfServerSeedHash, setPfServerSeedHash] = useState<string | null>(null);
+  const [pfServerSeed, setPfServerSeed] = useState<string | null>(null);
   const [animating, setAnimating] = useState(false);
   const nonceRef = useRef(0);
+
+  const shownNonce = useMemo(() => nonceRef.current + 1, [rolling, result]);
 
   // Helper to calculate probability for 2 dice (sum 2-12)
   const getWays = (val: number) => {
@@ -50,10 +57,10 @@ export function DiceGame() {
     setRolling(true);
     setResult(null);
     setAnimating(true);
+    setPfServerSeed(null);
     playDiceRoll();
 
     nonceRef.current += 1;
-    const clientSeed = userId || 'guest';
 
     let ticks = 0;
     const interval = setInterval(() => {
@@ -66,7 +73,11 @@ export function DiceGame() {
         clearInterval(interval);
         (async () => {
           try {
+            const { roundId, serverSeedHash } = await pfCreateRound();
+            setPfRoundId(roundId);
+            setPfServerSeedHash(serverSeedHash);
             const { roll, d1, d2, won, payout } = await apiPlayDice({
+              roundId,
               clientSeed,
               nonce: nonceRef.current,
               betAmount: amount,
@@ -74,6 +85,13 @@ export function DiceGame() {
               mode,
               target,
             });
+
+            try {
+              const reveal = await pfReveal(roundId);
+              setPfServerSeed(reveal.serverSeed);
+            } catch {
+              setPfServerSeed(null);
+            }
 
             setDiceValues([d1, d2]);
             setAnimating(false);
@@ -96,6 +114,48 @@ export function DiceGame() {
 
   return (
     <div className="space-y-4">
+      <div className="rounded-2xl p-4 cyber-card space-y-3" style={{ border: '1px solid #1e1e3a' }}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-xs font-mono font-black" style={{ color: '#00f5ff88' }}>CLIENT SEED</div>
+          <button
+            onClick={() => {
+              playClick();
+              const rnd = crypto.getRandomValues(new Uint32Array(4));
+              setClientSeed(Array.from(rnd).map(n => n.toString(16).padStart(8, '0')).join(''));
+            }}
+            className="px-3 py-1.5 rounded-xl text-xs font-black font-mono active:scale-95"
+            style={{ background: 'rgba(0,245,255,0.08)', border: '1px solid rgba(0,245,255,0.22)', color: '#00f5ff' }}
+          >
+            RANDOM
+          </button>
+        </div>
+        <input
+          value={clientSeed}
+          onChange={e => setClientSeed(e.target.value)}
+          className="w-full bg-[#0a0a0f] border border-[#1e1e3a] rounded-xl px-4 py-3 font-mono text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#00f5ff]"
+          placeholder="client seed"
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="text-[10px] font-mono" style={{ color: 'rgba(255,255,255,0.4)' }}>NONCE (NEXT BET)</div>
+            <div className="text-sm font-black font-mono" style={{ color: '#00f5ff' }}>{shownNonce}</div>
+          </div>
+          <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="text-[10px] font-mono" style={{ color: 'rgba(255,255,255,0.4)' }}>SERVER SEED HASH</div>
+            <div className="text-[10px] font-mono break-all" style={{ color: 'rgba(255,255,255,0.75)' }}>{pfServerSeedHash || '—'}</div>
+          </div>
+        </div>
+        {(pfRoundId || pfServerSeed) && (
+          <div className="rounded-xl p-3 space-y-1" style={{ background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.18)' }}>
+            <div className="text-[10px] font-mono" style={{ color: 'rgba(255,255,255,0.4)' }}>ROUND ID</div>
+            <div className="text-[10px] font-mono break-all" style={{ color: 'rgba(255,255,255,0.75)' }}>{pfRoundId || '—'}</div>
+            <div className="text-[10px] font-mono" style={{ color: 'rgba(255,255,255,0.4)' }}>SERVER SEED (REVEALED)</div>
+            <div className="text-[10px] font-mono break-all" style={{ color: 'rgba(255,255,255,0.75)' }}>{pfServerSeed || '—'}</div>
+            <a href="/provably-fair" className="text-xs font-bold" style={{ color: '#A855F7' }}>VERIFY →</a>
+          </div>
+        )}
+      </div>
+
       {/* Dice Display */}
       <div className="rounded-2xl p-8 flex flex-col items-center justify-center cyber-card"
         style={{ border: '1px solid #00f5ff33', minHeight: 180 }}>

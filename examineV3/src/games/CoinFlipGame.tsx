@@ -4,6 +4,7 @@ import { BetControls } from '../components/BetControls';
 import { useLanguage } from '../context/LanguageContext';
 import { playCoinFlip, playWin, playLoss, playClick } from '../utils/sounds';
 import { playCoinFlip as apiPlayCoinFlip } from '../api/casino';
+import { pfCreateRound } from '../api/provablyFair';
 import type { Currency } from '../types';
 
 type Side = 'heads' | 'tails';
@@ -37,7 +38,9 @@ export function CoinFlipGame() {
         clearInterval(interval);
         (async () => {
           try {
+            const { roundId } = await pfCreateRound();
             const { outcome, won, payout } = await apiPlayCoinFlip({
+              roundId,
               clientSeed,
               nonce: nonceRef.current,
               betAmount: amount,

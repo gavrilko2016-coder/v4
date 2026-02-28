@@ -15,23 +15,21 @@ function newServerSeed() {
   return crypto.randomBytes(32).toString('hex');
 }
 
-function createPfProof({ roundId, serverSeedHash, serverSeed, clientSeed, nonce }) {
-  return { roundId, serverSeedHash, serverSeed, clientSeed, nonce };
+function createPfProof({ roundId, serverSeedHash, clientSeed, nonce }) {
+  return { roundId, serverSeedHash, clientSeed, nonce };
 }
 
-function pfDraw(clientSeed, nonce) {
-  const serverSeed = newServerSeed();
-  const serverSeedHash = sha256Hex(serverSeed);
-  const roundId = crypto.randomUUID();
-
-  rounds.set(roundId, {
-    serverSeed,
-    serverSeedHash,
-    createdAt: Date.now(),
-  });
-
-  const r = randomFloatFromHmac(serverSeed, clientSeed, nonce);
-  return { roundId, serverSeedHash, serverSeed, clientSeed, nonce, random: r };
+function getRoundOr400(roundId, res) {
+  if (!roundId || typeof roundId !== 'string') {
+    res.status(400).json({ error: 'roundId is required' });
+    return null;
+  }
+  const round = rounds.get(roundId);
+  if (!round) {
+    res.status(404).json({ error: 'round not found' });
+    return null;
+  }
+  return round;
 }
 
 function lcg(seed) {
@@ -84,6 +82,8 @@ app.post('/api/pf/reveal', (req, res) => {
     return;
   }
 
+  // One-time reveal: once server seed is revealed, delete it so it can't be reused.
+  rounds.delete(roundId);
   res.json({ roundId, serverSeed: round.serverSeed, serverSeedHash: round.serverSeedHash });
 });
 
@@ -116,29 +116,33 @@ app.post('/api/pf/random', (req, res) => {
 });
 
 app.post('/api/games/coinflip/play', (req, res) => {
-  const { clientSeed, nonce, betAmount, choice } = req.body || {};
+  const { roundId, clientSeed, nonce, betAmount, choice } = req.body || {};
   const n = Number(nonce);
 
+  const round = getRoundOr400(roundId, res);
+  if (!round) return;
   if (!clientSeed || typeof clientSeed !== 'string') return res.status(400).json({ error: 'clientSeed is required' });
   if (!Number.isInteger(n) || n < 0) return res.status(400).json({ error: 'nonce must be an integer >= 0' });
   const bet = Number(betAmount);
   if (!Number.isFinite(bet) || bet <= 0) return res.status(400).json({ error: 'betAmount must be > 0' });
   if (choice !== 'heads' && choice !== 'tails') return res.status(400).json({ error: 'choice must be heads|tails' });
 
-  const draw = pfDraw(clientSeed, n);
-  const outcome = draw.random < 0.5 ? 'heads' : 'tails';
+  const random = randomFloatFromHmac(round.serverSeed, clientSeed, n);
+  const outcome = random < 0.5 ? 'heads' : 'tails';
 
   const multiplier = 1.98;
   const won = outcome === choice;
   const payout = won ? +(bet * multiplier).toFixed(8) : 0;
 
-  res.json({ outcome, won, multiplier, payout, proof: createPfProof(draw) });
+  res.json({ outcome, won, multiplier, payout, proof: createPfProof({ roundId, serverSeedHash: round.serverSeedHash, clientSeed, nonce: n }) });
 });
 
 app.post('/api/games/dice/play', (req, res) => {
-  const { clientSeed, nonce, betAmount, mode, target } = req.body || {};
+  const { roundId, clientSeed, nonce, betAmount, mode, target } = req.body || {};
   const n = Number(nonce);
 
+  const round = getRoundOr400(roundId, res);
+  if (!round) return;
   if (!clientSeed || typeof clientSeed !== 'string') return res.status(400).json({ error: 'clientSeed is required' });
   if (!Number.isInteger(n) || n < 0) return res.status(400).json({ error: 'nonce must be an integer >= 0' });
   const bet = Number(betAmount);
@@ -148,8 +152,8 @@ app.post('/api/games/dice/play', (req, res) => {
   if (!Number.isInteger(t) || t < 2 || t > 12) return res.status(400).json({ error: 'target must be integer 2..12' });
 
   const HOUSE_EDGE = 0.01;
-  const draw = pfDraw(clientSeed, n);
-  const idx = Math.min(35, Math.floor(clamp01(draw.random) * 36));
+  const random = randomFloatFromHmac(round.serverSeed, clientSeed, n);
+  const idx = Math.min(35, Math.floor(clamp01(random) * 36));
   const d1 = Math.floor(idx / 6) + 1;
   const d2 = (idx % 6) + 1;
   const roll = d1 + d2;
@@ -170,13 +174,15 @@ app.post('/api/games/dice/play', (req, res) => {
   const won = mode === 'over' ? roll > t : roll <= t;
   const payout = won ? +(bet * multiplier).toFixed(8) : 0;
 
-  res.json({ roll, d1, d2, won, multiplier, payout, proof: createPfProof(draw) });
+  res.json({ roll, d1, d2, won, multiplier, payout, proof: createPfProof({ roundId, serverSeedHash: round.serverSeedHash, clientSeed, nonce: n }) });
 });
 
 app.post('/api/games/limbo/play', (req, res) => {
-  const { clientSeed, nonce, betAmount, target } = req.body || {};
+  const { roundId, clientSeed, nonce, betAmount, target } = req.body || {};
   const n = Number(nonce);
 
+  const round = getRoundOr400(roundId, res);
+  if (!round) return;
   if (!clientSeed || typeof clientSeed !== 'string') return res.status(400).json({ error: 'clientSeed is required' });
   if (!Number.isInteger(n) || n < 0) return res.status(400).json({ error: 'nonce must be an integer >= 0' });
   const bet = Number(betAmount);
@@ -185,8 +191,8 @@ app.post('/api/games/limbo/play', (req, res) => {
   const clampedTarget = Math.max(1.01, Math.min(1000000, t));
 
   const HOUSE_EDGE = 0.01;
-  const draw = pfDraw(clientSeed, n);
-  const u = Math.max(1e-12, Math.min(1 - 1e-12, draw.random));
+  const random = randomFloatFromHmac(round.serverSeed, clientSeed, n);
+  const u = Math.max(1e-12, Math.min(1 - 1e-12, random));
   const raw = (1 - HOUSE_EDGE) / u;
   const clamped = Math.max(1.0, Math.min(1000000, raw));
   const result = Math.floor(clamped * 100) / 100;
@@ -194,13 +200,15 @@ app.post('/api/games/limbo/play', (req, res) => {
   const multiplier = clampedTarget;
   const payout = won ? +(bet * clampedTarget).toFixed(8) : 0;
 
-  res.json({ result, won, multiplier, payout, proof: createPfProof(draw) });
+  res.json({ result, won, multiplier, payout, proof: createPfProof({ roundId, serverSeedHash: round.serverSeedHash, clientSeed, nonce: n }) });
 });
 
 app.post('/api/games/slots/play', (req, res) => {
-  const { clientSeed, nonce, betAmount } = req.body || {};
+  const { roundId, clientSeed, nonce, betAmount } = req.body || {};
   const n = Number(nonce);
 
+  const round = getRoundOr400(roundId, res);
+  if (!round) return;
   if (!clientSeed || typeof clientSeed !== 'string') return res.status(400).json({ error: 'clientSeed is required' });
   if (!Number.isInteger(n) || n < 0) return res.status(400).json({ error: 'nonce must be an integer >= 0' });
   const bet = Number(betAmount);
@@ -223,8 +231,8 @@ app.post('/api/games/slots/play', (req, res) => {
   const BASE_RTP = expectedRtpForBasePaytable();
   const PAYOUT_SCALE = BASE_RTP > 0 ? (RTP_TARGET / BASE_RTP) : 1;
 
-  const draw = pfDraw(clientSeed, n);
-  const next = lcg(seedFromRandom(draw.random));
+  const random = randomFloatFromHmac(round.serverSeed, clientSeed, n);
+  const next = lcg(seedFromRandom(random));
   const pick = () => SYMBOLS[Math.floor(next() * SYMBOLS.length)];
   const reels = [pick(), pick(), pick()];
 
@@ -250,38 +258,42 @@ app.post('/api/games/slots/play', (req, res) => {
   const won = multiplier > 0;
   const payout = won ? +(bet * multiplier).toFixed(8) : 0;
 
-  res.json({ reels, won, multiplier, payout, label, proof: createPfProof(draw) });
+  res.json({ reels, won, multiplier, payout, label, proof: createPfProof({ roundId, serverSeedHash: round.serverSeedHash, clientSeed, nonce: n }) });
 });
 
 app.post('/api/games/crash/start', (req, res) => {
-  const { clientSeed, nonce } = req.body || {};
+  const { roundId, clientSeed, nonce } = req.body || {};
   const n = Number(nonce);
 
+  const round = getRoundOr400(roundId, res);
+  if (!round) return;
   if (!clientSeed || typeof clientSeed !== 'string') return res.status(400).json({ error: 'clientSeed is required' });
   if (!Number.isInteger(n) || n < 0) return res.status(400).json({ error: 'nonce must be an integer >= 0' });
 
   const RTP_TARGET = 0.97;
   const HOUSE_EDGE = 1 - RTP_TARGET;
-  const draw = pfDraw(clientSeed, n);
-  const u = Math.max(1e-12, Math.min(1 - 1e-12, draw.random));
+  const random = randomFloatFromHmac(round.serverSeed, clientSeed, n);
+  const u = Math.max(1e-12, Math.min(1 - 1e-12, random));
   const raw = (1 - HOUSE_EDGE) / u;
   const crashPoint = Math.max(1.0, Math.min(1000000, Math.floor(raw * 100) / 100));
 
-  res.json({ crashPoint, proof: createPfProof(draw) });
+  res.json({ crashPoint, proof: createPfProof({ roundId, serverSeedHash: round.serverSeedHash, clientSeed, nonce: n }) });
 });
 
 app.post('/api/games/mines/start', (req, res) => {
-  const { clientSeed, nonce, mineCount } = req.body || {};
+  const { roundId, clientSeed, nonce, mineCount } = req.body || {};
   const n = Number(nonce);
 
+  const round = getRoundOr400(roundId, res);
+  if (!round) return;
   if (!clientSeed || typeof clientSeed !== 'string') return res.status(400).json({ error: 'clientSeed is required' });
   if (!Number.isInteger(n) || n < 0) return res.status(400).json({ error: 'nonce must be an integer >= 0' });
   const m = Number(mineCount);
   if (!Number.isInteger(m) || m < 1 || m > 24) return res.status(400).json({ error: 'mineCount must be integer 1..24' });
 
   const GRID_SIZE = 25;
-  const draw = pfDraw(clientSeed, n);
-  const next = lcg(seedFromRandom(draw.random));
+  const random = randomFloatFromHmac(round.serverSeed, clientSeed, n);
+  const next = lcg(seedFromRandom(random));
 
   const indices = Array.from({ length: GRID_SIZE }, (_, i) => i);
   for (let i = indices.length - 1; i > 0; i--) {
@@ -290,13 +302,15 @@ app.post('/api/games/mines/start', (req, res) => {
   }
   const mines = indices.slice(0, m);
 
-  res.json({ mines, proof: createPfProof(draw) });
+  res.json({ mines, proof: createPfProof({ roundId, serverSeedHash: round.serverSeedHash, clientSeed, nonce: n }) });
 });
 
 app.post('/api/games/blackjack/deal', (req, res) => {
-  const { clientSeed, nonce } = req.body || {};
+  const { roundId, clientSeed, nonce } = req.body || {};
   const n = Number(nonce);
 
+  const round = getRoundOr400(roundId, res);
+  if (!round) return;
   if (!clientSeed || typeof clientSeed !== 'string') return res.status(400).json({ error: 'clientSeed is required' });
   if (!Number.isInteger(n) || n < 0) return res.status(400).json({ error: 'nonce must be an integer >= 0' });
 
@@ -305,14 +319,14 @@ app.post('/api/games/blackjack/deal', (req, res) => {
   const deck = [];
   for (const suit of SUITS) for (const rank of RANKS) deck.push({ rank, suit });
 
-  const draw = pfDraw(clientSeed, n);
-  const next = lcg(seedFromRandom(draw.random));
+  const random = randomFloatFromHmac(round.serverSeed, clientSeed, n);
+  const next = lcg(seedFromRandom(random));
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(next() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
 
-  res.json({ deck, proof: createPfProof(draw) });
+  res.json({ deck, proof: createPfProof({ roundId, serverSeedHash: round.serverSeedHash, clientSeed, nonce: n }) });
 });
 
 const port = Number(process.env.PORT) || 3001;

@@ -26,6 +26,7 @@ import {
 } from './components/Icons';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfService } from './components/TermsOfService';
+import { ProvablyFairPage } from './components/ProvablyFairPage';
 import { Analytics } from '@vercel/analytics/react';
 import { Tab } from './types';
 
@@ -658,6 +659,10 @@ export function App() {
   // Simple router for Terms of Service
   if (window.location.pathname === '/terms-of-service') {
     return <TermsOfService />;
+  }
+
+  if (window.location.pathname === '/provably-fair') {
+    return <ProvablyFairPage />;
   }
 
   return (
